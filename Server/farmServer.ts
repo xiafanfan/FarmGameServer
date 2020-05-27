@@ -40,9 +40,15 @@
 // (https://api.playfab.com/Documentation/Client/method/ExecuteCloudScript)
 // "context" contains additional information when the Cloud Script function is called from a PlayStream action.
 "use strict";
-
+var prices={
+    "eggplant":1,
+    "strawberry":3,
+    "sunflower":5,
+    "tomato":2,
+}
 var catalogItem = [];
-handlers.updateCatalogItem =try_catch( function (args, context) {
+function updateCatalogItem() {
+    try_catch( function (args, context) {
     let _catalogItem = [];
     let getCatalogItemsRequest = {
         CatalogVersion: "main"
@@ -71,6 +77,7 @@ handlers.updateCatalogItem =try_catch( function (args, context) {
     }
 
 })
+}
 
 
 handlers.pullCatalogItem =try_catch( function (args, context) {
@@ -193,6 +200,9 @@ handlers.helloWorld = try_catch(function (args, context) {
 //sellRequest=[{itemInstanceId:string, itemId:string, count:number }]
 handlers.sell = try_catch(function (args, context) {
     if (args && args.sellRequest) {
+        if(args.opType==1){
+            updateCatalogItem();
+        }
         for (let ind in args.sellRequest) {
             let itemInstanceId = args.sellRequest[ind].itemInstanceId;
             let itemId = args.sellRequest[ind].itemId;
@@ -203,11 +213,11 @@ handlers.sell = try_catch(function (args, context) {
                 ConsumeCount: count,
             }
             server.ConsumeItem(consumeRequest);
-
+            let price=args.opType==1? catalogItem[itemId].price.GD:prices[itemId];
             let addVCRequest: PlayFabServerModels.AddUserVirtualCurrencyRequest = {
                 PlayFabId: currentPlayerId,
                 VirtualCurrency: "GD",
-                Amount: count * catalogItem[itemId].price.GD,
+                Amount:count * price,
             }
             server.AddUserVirtualCurrency(addVCRequest);
         }
