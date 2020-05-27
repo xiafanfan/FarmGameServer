@@ -1,0 +1,197 @@
+[
+    {
+        "code": 200,
+        "status": "OK",
+        "data": {
+            "ItemGrantResults": [
+                {
+                    "PlayFabId": "922071AF22B27E8A",
+                    "Result": true,
+                    "ItemId": "sunflower_seed",
+                    "ItemInstanceId": "384B910D1E4E5CEB",
+                    "ItemClass": "seed",
+                    "PurchaseDate": "2020-05-06T02:10:28.986Z",
+                    "RemainingUses": 3,
+                    "UsesIncrementedBy": 1,
+                    "Annotation": "Granted via Game Manager",
+                    "CatalogVersion": "main",
+                    "BundleParent": "EAAAA70D771BBD17",
+                    "DisplayName": "sunflower seed",
+                    "UnitPrice": 0
+                },
+                {
+                    "PlayFabId": "922071AF22B27E8A",
+                    "Result": true,
+                    "ItemId": "uncommon_fertilizer",
+                    "ItemInstanceId": "BBD420EA304F3332",
+                    "ItemClass": "fertilizer",
+                    "PurchaseDate": "2020-05-06T02:10:28.986Z",
+                    "RemainingUses": 2,
+                    "UsesIncrementedBy": 1,
+                    "Annotation": "Granted via Game Manager",
+                    "CatalogVersion": "main",
+                    "BundleParent": "EAAAA70D771BBD17",
+                    "DisplayName": "uncommon fertilizer",
+                    "UnitPrice": 0
+                }
+            ]
+        }
+    },
+    {
+        "code": 200,
+        "status": "OK",
+        "data": {
+            "ItemGrantResults": [
+                {
+                    "PlayFabId": "922071AF22B27E8A",
+                    "Result": true,
+                    "ItemId": "sunflower_product",
+                    "ItemInstanceId": "68DDEFAE071EA521",
+                    "PurchaseDate": "2020-05-07T03:35:58.566Z",
+                    "Expiration": "2020-05-07T03:36:03.566Z",
+                    "Annotation": "test",
+                    "CatalogVersion": "main",
+                    "UnitPrice": 0,
+                    "BundleContents": [
+                        "sunflower",
+                        "sunflower",
+                        "sunflower",
+                        "sunflower",
+                        "sunflower"
+                    ]
+                },
+                {
+                    "PlayFabId": "922071AF22B27E8A",
+                    "Result": true,
+                    "ItemId": "tomato_product",
+                    "ItemInstanceId": "3DF61322E56B491D",
+                    "PurchaseDate": "2020-05-07T03:35:58.566Z",
+                    "Expiration": "2020-05-07T03:36:03.566Z",
+                    "Annotation": "test",
+                    "CatalogVersion": "main",
+                    "UnitPrice": 0,
+                    "BundleContents": [
+                        "2_tomatoes",
+                        "tomato",
+                        "tomato",
+                        "tomato",
+                        "tomato",
+                        "tomato",
+                        "tomato"
+                    ]
+                },
+                {
+                    "PlayFabId": "922071AF22B27E8A",
+                    "Result": true,
+                    "ItemId": "sunflower",
+                    "ItemInstanceId": "7A83388988DCEDC2",
+                    "ItemClass": "product",
+                    "PurchaseDate": "2020-05-07T03:35:58.566Z",
+                    "RemainingUses": 5,
+                    "UsesIncrementedBy": 5,
+                    "Annotation": "test",
+                    "CatalogVersion": "main",
+                    "BundleParent": "68DDEFAE071EA521",
+                    "DisplayName": "sunflower",
+                    "UnitPrice": 0
+                },
+                {
+                    "PlayFabId": "922071AF22B27E8A",
+                    "Result": true,
+                    "ItemId": "2_tomatoes",
+                    "ItemInstanceId": "2103FC0C5D91C634",
+                    "PurchaseDate": "2020-05-07T03:35:58.566Z",
+                    "Expiration": "2020-05-07T03:36:03.566Z",
+                    "RemainingUses": 1,
+                    "UsesIncrementedBy": 1,
+                    "Annotation": "test",
+                    "CatalogVersion": "main",
+                    "BundleParent": "3DF61322E56B491D",
+                    "UnitPrice": 0,
+                    "BundleContents": [
+                        "tomato",
+                        "tomato"
+                    ]
+                },
+                {
+                    "PlayFabId": "922071AF22B27E8A",
+                    "Result": true,
+                    "ItemId": "tomato",
+                    "ItemInstanceId": "5EAA4904191F32AE",
+                    "ItemClass": "product",
+                    "PurchaseDate": "2020-05-07T03:35:58.566Z",
+                    "RemainingUses": 6,
+                    "UsesIncrementedBy": 6,
+                    "Annotation": "test",
+                    "CatalogVersion": "main",
+                    "BundleParent": "2103FC0C5D91C634",
+                    "DisplayName": "tomato",
+                    "UnitPrice": 0
+                }
+            ]
+        }
+    },
+    {
+        "code": 200,
+        "status": "OK",
+        "data": {
+            "ItemGrantResults": [
+                {
+                    "PlayFabId": "922071AF22B27E8A",
+                    "Result": false,
+                    "ItemId": "tomato_products",
+                    "Annotation": "test",
+                    "UnitPrice": 0
+                },
+                {
+                    "PlayFabId": "922071AF22B27E8A",
+                    "Result": true,
+                    "ItemId": "sunflower_product",
+                    "ItemInstanceId": "31FD9EEF33EB4F81",
+                    "PurchaseDate": "2020-05-07T03:38:16.469Z",
+                    "Expiration": "2020-05-07T03:38:21.469Z",
+                    "Annotation": "test",
+                    "CatalogVersion": "main",
+                    "UnitPrice": 0,
+                    "BundleContents": [
+                        "sunflower",
+                        "sunflower",
+                        "sunflower",
+                        "sunflower",
+                        "sunflower"
+                    ]
+                },
+                {
+                    "PlayFabId": "922071AF22B27E8A",
+                    "Result": true,
+                    "ItemId": "sunflower",
+                    "ItemInstanceId": "7A83388988DCEDC2",
+                    "ItemClass": "product",
+                    "PurchaseDate": "2020-05-07T03:35:58.566Z",
+                    "RemainingUses": 10,
+                    "UsesIncrementedBy": 5,
+                    "Annotation": "test",
+                    "CatalogVersion": "main",
+                    "BundleParent": "68DDEFAE071EA521",
+                    "DisplayName": "sunflower",
+                    "UnitPrice": 0
+                }
+            ]
+        }
+    },
+    {
+        "code": 200,
+        "status": "OK",
+        "data": {
+            "ItemGrantResults": [
+                {
+                    "PlayFabId": "922071AF22B27E8A",
+                    "Result": false,
+                    "ItemId": "sunflower_product",
+                    "Annotation": "test",
+                    "UnitPrice": 0
+                }
+            ]
+        }
+    }
+]
