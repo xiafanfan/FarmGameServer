@@ -46,8 +46,8 @@ var harvestRequest = [];
 var sowRequest = [];
 var eradicateRequest = [];
 var accelerateRequest = [];
-var purchaseRequestItem = [];
-var sellRequestItem = [];
+var purchaseList = [];
+var sellList = [];
 var soilOp = [];
 var moneyNum;
 var storeGroup = [];
@@ -195,7 +195,7 @@ function create() {
     }
 
     //run
-    self.setInterval("grow()", 1000);
+    self.setInterval("refreshPlant()", 1000);
     self.setInterval("sync()", 30000);
     login();
 
@@ -242,18 +242,29 @@ function initStore() {
             let _btn = _context.add.image(_item.x + 40 * (i - 0.5), _item.y + 50, op[i]).setScale(0.3).setDepth(-1).setOrigin(0.5, 0.5);
             storeGroup.push(_btn);
             _btn.inputEnabled = true;
-            _btn.on('pointerdown', function () {
+            let timeHandler;
+            let changeNum = function () {
                 let _count = _item.count + 2 * (i - 0.5);
                 if (_count > 0) {
-                    purchaseRequestItem[_item.itemId] = _count;
+                    purchaseList[_item.itemId] = _count;
                 } else {
                     _count = 0;
-                    if (purchaseRequestItem[_item.itemId]) {
-                        delete purchaseRequestItem[_item.itemId];
+                    if (purchaseList[_item.itemId]) {
+                        delete purchaseList[_item.itemId];
                     }
                 }
                 _item.setCount(_count);
+                return changeNum;
+            }
+            _btn.on('pointerdown', function () {
+                timeHandler = self.setInterval(changeNum(), 100);
             });
+            _btn.on("pointerup", function () {
+                self.clearInterval(timeHandler);
+            })
+            _btn.on("pointerout", function () {
+                self.clearInterval(timeHandler);
+            })
         }
     }
 
@@ -262,7 +273,7 @@ function initStore() {
     storeGroup.push(btn_purchase);
 
     btn_purchase.on('pointerdown', function () {
-        for (let ind in purchaseRequestItem) {
+        for (let ind in purchaseList) {
             purchase(btn_purchase);
             break;
         }
@@ -331,22 +342,33 @@ function initWarehouse() {
                 let _btn = _context.add.image(_item.x + 40 * (i - 0.5), _item.y + 50, op[i]).setScale(0.3).setDepth(-1).setOrigin(0.5, 0.5);
                 warehouseGroup.push(_btn);
                 _btn.inputEnabled = true;
-                _btn.on('pointerdown', function () {
+                let timeHandler;
+                let changeNum = function () {
                     let _count = _item.count + 2 * (i - 0.5);
                     if (_count > 0) {
                         if (userProduct[_item.itemId].count && _count <= userProduct[_item.itemId].count) {
-                            sellRequestItem[_item.itemId] = _count;
+                            sellList[_item.itemId] = _count;
                         } else {
                             _count = userProduct[_item.itemId].count;
                         }
                     } else {
                         _count = 0;
-                        if (sellRequestItem[_item.itemId]) {
-                            delete sellRequestItem[_item.itemId];
+                        if (sellList[_item.itemId]) {
+                            delete sellList[_item.itemId];
                         }
                     }
                     _item.setCount(_count);
+                    return changeNum;
+                }
+                _btn.on('pointerdown', function () {
+                    timeHandler = self.setInterval(changeNum(), 100);
                 });
+                _btn.on("pointerup", function () {
+                    self.clearInterval(timeHandler);
+                })
+                _btn.on("pointerout", function () {
+                    self.clearInterval(timeHandler);
+                })
             }
         }
     }
@@ -356,8 +378,8 @@ function initWarehouse() {
     warehouseGroup.push(btn_sell);
 
     btn_sell.on('pointerdown', function () {
-        for (let ind in sellRequestItem) {
-            purchase(btn_sell);
+        for (let ind in sellList) {
+            sell(btn_sell);
             break;
         }
 
@@ -403,10 +425,10 @@ function purchase(btn_buy) {
         "StoreId": "seed_store",
         "Items": []
     }
-    for (let ind in purchaseRequestItem) {
+    for (let ind in purchaseList) {
         purchaseReq.Items.push({
             "ItemId": ind,
-            "Quantity": purchaseRequestItem[ind],
+            "Quantity": purchaseList[ind],
 
         })
     }
@@ -432,7 +454,7 @@ function purchase(btn_buy) {
                                 }
                                 storeGroup[result.data.Items[ind].ItemId].setCount(0);
                             }
-                            purchaseRequestItem = [];
+                            purchaseList = [];
                             userVirtualCurrency.GD -= price;
                             moneyNum.setText('GD: ' + userVirtualCurrency.GD);
                             btn_buy.setTint(0xffffff);
@@ -466,7 +488,48 @@ function purchase(btn_buy) {
     });
 
 }
+function sell(btn_sell) {
 
+    let income=0;
+    console.log("try sell");
+    btn_sell.disableInteractive();
+    console.log("disable interact");
+    btn_sell.setTint(0x999999);
+    let sellReq = {
+        FunctionName:"sell",
+        RevisionSelection:"Live",
+        FunctionParameter:{
+            "sellRequest":[],
+        },
+        GeneratePlayStreamEvent:true
+    }
+    for (let ind in sellList) {
+        sellReq.FunctionParameter.sellRequest.push({
+            "itemId": ind,
+            "itemInstanceId":userProduct[ind].instanceId,
+            "count": sellList[ind],
+        });
+        income+=sellList[ind]*catalogItem[ind].price.GD;
+    }
+    PlayFabClientSDK.ExecuteCloudScript(sellReq, (result, error)=>{
+        if (result != null) {
+            for (let ind in sellList) {
+                userProduct[ind].setCount(userProduct[ind].count-sellList[ind]);
+                warehouseGroup[ind].setCount(0);
+            }
+            userVirtualCurrency.GD += income;
+            moneyNum.setText('GD: ' + userVirtualCurrency.GD);
+            sellList=[];
+        }
+        else if (error != null) {
+            alert(PlayFab.GenerateErrorReport(error));
+        }
+        btn_sell.setTint(0xffffff);
+        btn_sell.setInteractive();
+    });
+
+
+}
 function updateCatalogItem(args, context) {
     let _catalogItem = [];
     let getCatalogItemsRequest = {
@@ -608,7 +671,7 @@ function updateGrowthStage(child) {
         child.plant.setFrame(1);
     }
 }
-function grow() {
+function refreshPlant() {
     for (let i = 0; i < userSoil.length; i++) {
         if (userSoil[i].hasPlant) {
             updateGrowthStage(userSoil[i]);
@@ -643,39 +706,7 @@ function LogResult(result, error) {
         alert(PlayFab.GenerateErrorReport(error));
     }
 }
-function ExecuteHelloWorld() {
-    let _catalogItem = [];
-    let str = "[{\"ItemId\":\"common_fertilizer\",\"ItemClass\":\"fertilizer\",\"CatalogVersion\":\"main\",\"DisplayName\":\"common fertilizer\",\"VirtualCurrencyPrices\":{\"GD\":5},\"Tags\":[],\"CustomData\":\"{\\\"acceleration\\\":\\\"80\\\"}\",\"Consumable\":{},\"CanBecomeCharacter\":false,\"IsStackable\":true,\"IsTradable\":false,\"IsLimitedEdition\":false,\"InitialLimitedEditionCount\":0},{\"ItemId\":\"common_soil\",\"ItemClass\":\"soil\",\"CatalogVersion\":\"main\",\"DisplayName\":\"common soil\",\"VirtualCurrencyPrices\":{\"GD\":100},\"Tags\":[],\"CustomData\":\"{\\\"speed\\\":\\\"1\\\"}\",\"Consumable\":{},\"CanBecomeCharacter\":false,\"IsStackable\":false,\"IsTradable\":false,\"IsLimitedEdition\":false,\"InitialLimitedEditionCount\":0},{\"ItemId\":\"eggplant_seed\",\"ItemClass\":\"seed\",\"CatalogVersion\":\"main\",\"DisplayName\":\"eggplant seed\",\"Description\":\"\",\"VirtualCurrencyPrices\":{\"GD\":1},\"Tags\":[],\"CustomData\":\"{\\\"product\\\":\\\"eggplant_product\\\",\\\"grow_time\\\":\\\"300\\\"}\",\"Consumable\":{},\"CanBecomeCharacter\":false,\"IsStackable\":true,\"IsTradable\":false,\"IsLimitedEdition\":false,\"InitialLimitedEditionCount\":0},{\"ItemId\":\"gold_key\",\"CatalogVersion\":\"main\",\"VirtualCurrencyPrices\":{\"GD\":50},\"Tags\":[],\"Consumable\":{\"UsageCount\":1},\"CanBecomeCharacter\":false,\"IsStackable\":true,\"IsTradable\":false,\"IsLimitedEdition\":false,\"InitialLimitedEditionCount\":0},{\"ItemId\":\"siliver_key\",\"CatalogVersion\":\"main\",\"VirtualCurrencyPrices\":{\"GD\":20},\"Tags\":[],\"Consumable\":{\"UsageCount\":2},\"CanBecomeCharacter\":false,\"IsStackable\":true,\"IsTradable\":false,\"IsLimitedEdition\":false,\"InitialLimitedEditionCount\":0},{\"ItemId\":\"silver_treasure_chest\",\"CatalogVersion\":\"main\",\"VirtualCurrencyPrices\":{\"GD\":5},\"Tags\":[],\"Consumable\":{\"UsageCount\":1},\"Container\":{\"KeyItemId\":\"siliver_key\",\"ItemContents\":[],\"ResultTableContents\":[\"cheap_seed\",\"cheap_seed\",\"cheap_seed\",\"cheap_seed\",\"cheap_seed\",\"cheap_seed\",\"cheap_seed\",\"cheap_seed\",\"cheap_seed\",\"cheap_seed\",\"expensive_seed\"]},\"CanBecomeCharacter\":false,\"IsStackable\":false,\"IsTradable\":false,\"IsLimitedEdition\":false,\"InitialLimitedEditionCount\":0},{\"ItemId\":\"gold_treasure_chest\",\"CatalogVersion\":\"main\",\"VirtualCurrencyPrices\":{\"GD\":5},\"Tags\":[],\"Consumable\":{\"UsageCount\":1},\"Container\":{\"KeyItemId\":\"gold_key\",\"ItemContents\":[],\"ResultTableContents\":[\"cheap_seed\",\"expensive_seed\",\"expensive_seed\",\"expensive_seed\",\"expensive_seed\",\"expensive_seed\",\"expensive_seed\",\"expensive_seed\",\"expensive_seed\",\"expensive_seed\",\"expensive_seed\"]},\"CanBecomeCharacter\":false,\"IsStackable\":false,\"IsTradable\":false,\"IsLimitedEdition\":false,\"InitialLimitedEditionCount\":0},{\"ItemId\":\"strawberry_seed\",\"ItemClass\":\"seed\",\"CatalogVersion\":\"main\",\"DisplayName\":\"strawberry seed\",\"Description\":\"\",\"VirtualCurrencyPrices\":{\"GD\":4},\"Tags\":[],\"CustomData\":\"{\\\"product\\\":\\\"strawberry_product\\\",\\\"grow_time\\\":\\\"600\\\"}\",\"Consumable\":{},\"CanBecomeCharacter\":false,\"IsStackable\":true,\"IsTradable\":false,\"IsLimitedEdition\":false,\"InitialLimitedEditionCount\":0},{\"ItemId\":\"sunflower_seed\",\"ItemClass\":\"seed\",\"CatalogVersion\":\"main\",\"DisplayName\":\"sunflower seed\",\"Description\":\"Sunflower Seed:\\ncan produce 5~10 tomato after 5 hours.\",\"VirtualCurrencyPrices\":{\"GD\":8},\"Tags\":[],\"CustomData\":\"{\\\"product\\\":\\\"sunflower_product\\\",\\\"grow_time\\\":\\\"600\\\"}\",\"Consumable\":{},\"CanBecomeCharacter\":false,\"IsStackable\":true,\"IsTradable\":false,\"IsLimitedEdition\":false,\"InitialLimitedEditionCount\":0},{\"ItemId\":\"tomato_seed\",\"ItemClass\":\"seed\",\"CatalogVersion\":\"main\",\"DisplayName\":\"tomato seed\",\"Description\":\"Tomato Seed:\\ncan produce 5~10 tomato after 5 hours.\",\"VirtualCurrencyPrices\":{\"GD\":2},\"Tags\":[],\"CustomData\":\"{\\\"product\\\":\\\"tomato_product\\\",\\\"grow_time\\\":\\\"300\\\"}\",\"Consumable\":{},\"CanBecomeCharacter\":false,\"IsStackable\":true,\"IsTradable\":false,\"IsLimitedEdition\":false,\"InitialLimitedEditionCount\":0},{\"ItemId\":\"uncommon_fertilizer\",\"ItemClass\":\"fertilizer\",\"CatalogVersion\":\"main\",\"DisplayName\":\"uncommon fertilizer\",\"VirtualCurrencyPrices\":{\"GD\":15},\"Tags\":[],\"CustomData\":\"{\\\"acceleration\\\":\\\"300\\\"}\",\"Consumable\":{},\"CanBecomeCharacter\":false,\"IsStackable\":true,\"IsTradable\":false,\"IsLimitedEdition\":false,\"InitialLimitedEditionCount\":0},{\"ItemId\":\"tomato\",\"ItemClass\":\"product\",\"CatalogVersion\":\"main\",\"DisplayName\":\"tomato\",\"Description\":\"A normal vegetable.\",\"VirtualCurrencyPrices\":{\"GD\":2},\"Tags\":[],\"Consumable\":{},\"CanBecomeCharacter\":false,\"IsStackable\":true,\"IsTradable\":false,\"IsLimitedEdition\":false,\"InitialLimitedEditionCount\":0},{\"ItemId\":\"eggplant\",\"ItemClass\":\"product\",\"CatalogVersion\":\"main\",\"DisplayName\":\"eggplant\",\"Description\":\"Perfectly normal eggplant.\",\"VirtualCurrencyPrices\":{\"GD\":1},\"Tags\":[],\"Consumable\":{},\"CanBecomeCharacter\":false,\"IsStackable\":true,\"IsTradable\":false,\"IsLimitedEdition\":false,\"InitialLimitedEditionCount\":0},{\"ItemId\":\"strawberry\",\"ItemClass\":\"product\",\"CatalogVersion\":\"main\",\"DisplayName\":\"strawberry\",\"VirtualCurrencyPrices\":{\"GD\":3},\"Tags\":[],\"Consumable\":{},\"CanBecomeCharacter\":false,\"IsStackable\":true,\"IsTradable\":false,\"IsLimitedEdition\":false,\"InitialLimitedEditionCount\":0},{\"ItemId\":\"sunflower\",\"ItemClass\":\"product\",\"CatalogVersion\":\"main\",\"DisplayName\":\"sunflower\",\"Description\":\"bee's food\",\"VirtualCurrencyPrices\":{\"GD\":5},\"Tags\":[],\"Consumable\":{},\"CanBecomeCharacter\":false,\"IsStackable\":true,\"IsTradable\":false,\"IsLimitedEdition\":false,\"InitialLimitedEditionCount\":0},{\"ItemId\":\"2_tomatoes\",\"CatalogVersion\":\"main\",\"VirtualCurrencyPrices\":{},\"Tags\":[],\"Consumable\":{\"UsagePeriod\":5},\"Bundle\":{\"BundledItems\":[\"tomato\",\"tomato\"],\"BundledResultTables\":[]},\"CanBecomeCharacter\":false,\"IsStackable\":true,\"IsTradable\":false,\"IsLimitedEdition\":false,\"InitialLimitedEditionCount\":0},{\"ItemId\":\"new_user_pacage\",\"CatalogVersion\":\"main\",\"DisplayName\":\"new user pacage\",\"VirtualCurrencyPrices\":{\"GD\":5},\"Tags\":[],\"Consumable\":{\"UsagePeriod\":5},\"Bundle\":{\"BundledItems\":[\"sunflower_seed\",\"sunflower_seed\",\"eggplant_seed\",\"eggplant_seed\",\"strawberry_seed\",\"strawberry_seed\",\"vegetable_seeds\",\"vegetable_seeds\",\"common_fertilizer\",\"common_fertilizer\",\"common_fertilizer\",\"common_fertilizer\",\"common_fertilizer\",\"uncommon_fertilizer\",\"common_soil\",\"common_soil\",\"common_soil\",\"common_soil\",\"common_soil\",\"common_soil\"],\"BundledResultTables\":[]},\"CanBecomeCharacter\":false,\"IsStackable\":false,\"IsTradable\":false,\"IsLimitedEdition\":false,\"InitialLimitedEditionCount\":0},{\"ItemId\":\"vegetable_seeds\",\"CatalogVersion\":\"main\",\"DisplayName\":\"\",\"Description\":\"seeds of vegetables.\",\"VirtualCurrencyPrices\":{\"GD\":10},\"Tags\":[],\"Consumable\":{\"UsagePeriod\":5},\"Bundle\":{\"BundledItems\":[\"tomato_seed\",\"tomato_seed\",\"tomato_seed\",\"tomato_seed\",\"eggplant_seed\",\"eggplant_seed\",\"eggplant_seed\",\"eggplant_seed\"],\"BundledResultTables\":[]},\"CanBecomeCharacter\":false,\"IsStackable\":true,\"IsTradable\":false,\"IsLimitedEdition\":false,\"InitialLimitedEditionCount\":0},{\"ItemId\":\"sunflower_product\",\"CatalogVersion\":\"main\",\"VirtualCurrencyPrices\":{},\"Tags\":[],\"Consumable\":{\"UsagePeriod\":5},\"Bundle\":{\"BundledItems\":[\"sunflower\",\"sunflower\",\"sunflower\",\"sunflower\",\"sunflower\"],\"BundledResultTables\":[]},\"CanBecomeCharacter\":false,\"IsStackable\":false,\"IsTradable\":false,\"IsLimitedEdition\":false,\"InitialLimitedEditionCount\":0},{\"ItemId\":\"tomato_product\",\"CatalogVersion\":\"main\",\"VirtualCurrencyPrices\":{},\"Tags\":[],\"Consumable\":{\"UsagePeriod\":5},\"Bundle\":{\"BundledItems\":[\"tomato\",\"tomato\",\"tomato\",\"tomato\",\"tomato\"],\"BundledResultTables\":[]},\"CanBecomeCharacter\":false,\"IsStackable\":false,\"IsTradable\":false,\"IsLimitedEdition\":false,\"InitialLimitedEditionCount\":0},{\"ItemId\":\"eggplant_product\",\"CatalogVersion\":\"main\",\"VirtualCurrencyPrices\":{},\"Tags\":[],\"Consumable\":{\"UsagePeriod\":5},\"Bundle\":{\"BundledItems\":[\"eggplant\",\"eggplant\",\"eggplant\",\"eggplant\",\"eggplant\"],\"BundledResultTables\":[]},\"CanBecomeCharacter\":false,\"IsStackable\":true,\"IsTradable\":false,\"IsLimitedEdition\":false,\"InitialLimitedEditionCount\":0},{\"ItemId\":\"strawberry_product\",\"CatalogVersion\":\"main\",\"VirtualCurrencyPrices\":{},\"Tags\":[],\"Consumable\":{\"UsagePeriod\":5},\"Bundle\":{\"BundledItems\":[\"strawberry\",\"strawberry\",\"strawberry\",\"strawberry\",\"strawberry\"],\"BundledResultTables\":[]},\"CanBecomeCharacter\":false,\"IsStackable\":true,\"IsTradable\":false,\"IsLimitedEdition\":false,\"InitialLimitedEditionCount\":0},{\"ItemId\":\"many_seed\",\"CatalogVersion\":\"main\",\"VirtualCurrencyPrices\":{},\"Tags\":[],\"Consumable\":{\"UsagePeriod\":5},\"Bundle\":{\"BundledItems\":[\"eggplant_seed\",\"eggplant_seed\",\"eggplant_seed\",\"eggplant_seed\",\"eggplant_seed\",\"eggplant_seed\",\"eggplant_seed\",\"eggplant_seed\",\"eggplant_seed\",\"eggplant_seed\",\"sunflower_seed\",\"sunflower_seed\",\"sunflower_seed\",\"sunflower_seed\",\"sunflower_seed\",\"sunflower_seed\",\"sunflower_seed\",\"sunflower_seed\",\"sunflower_seed\",\"sunflower_seed\",\"strawberry_seed\",\"strawberry_seed\",\"strawberry_seed\",\"strawberry_seed\",\"strawberry_seed\",\"strawberry_seed\",\"strawberry_seed\",\"strawberry_seed\",\"strawberry_seed\",\"strawberry_seed\",\"tomato_seed\",\"tomato_seed\",\"tomato_seed\",\"tomato_seed\",\"tomato_seed\",\"tomato_seed\",\"tomato_seed\",\"tomato_seed\",\"tomato_seed\",\"tomato_seed\"],\"BundledResultTables\":[]},\"CanBecomeCharacter\":false,\"IsStackable\":false,\"IsTradable\":false,\"IsLimitedEdition\":false,\"InitialLimitedEditionCount\":0},{\"ItemId\":\"many_fertilizer\",\"CatalogVersion\":\"main\",\"VirtualCurrencyPrices\":{},\"Tags\":[],\"Consumable\":{\"UsagePeriod\":5},\"Bundle\":{\"BundledItems\":[\"common_fertilizer\",\"common_fertilizer\",\"common_fertilizer\",\"common_fertilizer\",\"common_fertilizer\",\"common_fertilizer\",\"common_fertilizer\",\"common_fertilizer\",\"common_fertilizer\",\"common_fertilizer\",\"common_fertilizer\",\"common_fertilizer\",\"common_fertilizer\",\"common_fertilizer\",\"common_fertilizer\",\"common_fertilizer\",\"common_fertilizer\",\"common_fertilizer\",\"common_fertilizer\",\"common_fertilizer\"],\"BundledResultTables\":[]},\"CanBecomeCharacter\":false,\"IsStackable\":false,\"IsTradable\":false,\"IsLimitedEdition\":false,\"InitialLimitedEditionCount\":0}]"
-    let result = {};
-    result.Catalog = JSON.parse(str);
-    for (let ind in result.Catalog) {
-        let item = result.Catalog[ind];
-        let customData = void 0;
-        if (item.CustomData) {
-            try {
-                customData = JSON.parse(item.CustomData);
-            }
-            catch (error) { }
-            ;
-        }
-        _catalogItem[item.ItemId] = {
-            price: item.VirtualCurrencyPrices,
-            itemClass: item.ItemClass,
-            customData: customData,
-        }
-        let z = { CatalogItem: JSON.stringify(item) }
-        z
-    }
-    let args = {};
-    args = { "sellRequest": [{ "itemInstanceId": "61EF3AAB337A2EE", "itemId": "tomato", "count": 5 }] }
-    for (let ind in args.sellRequest) {
-        let itemInstanceId = args.sellRequest[ind].itemInstanceId;
-        let itemId = args.sellRequest[ind].itemId;
-        let count = args.sellRequest[ind].count;
-        let Amount = count * catalogItem[itemId].price.GD;
-    }
-    let z = { CatalogItem: JSON.stringify(_catalogItem) }
-    z;
+// function ExecuteHelloWorld() {
     //     let req = {
     //         FunctionName: "helloWorld",
     //         RevisionSelection: "Live",
@@ -691,17 +722,7 @@ function ExecuteHelloWorld() {
     //        alert("false")
     //    }
 
-}
-function MakePurchase(id, price) {
-    let purchaseItemRequest = {
-        // In your game, this should just be a constant matching your primary catalog
-        CatalogVersion: "main",
-        ItemId: id,
-        Price: price,
-        VirtualCurrency: "GD"
-    };
-    PlayFabClientSDK.PurchaseItem(purchaseItemRequest, LogResult);
-}
+// }
 
 function getCatalogItem() {
     let req = {
@@ -717,9 +738,11 @@ function getCatalogItem() {
         }
     });
 }
+
 function getInventory() {
     PlayFabClientSDK.GetUserInventory({}, updateUserInventory);
 }
+
 function getStoreItems() {
     PlayFabClientSDK.GetStoreItems({ StoreId: "seed_store" }, (result, error) => {
         if (result !== null) {
