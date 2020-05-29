@@ -43,46 +43,12 @@ var prices = {
     "sunflower": 5,
     "tomato": 2,
 };
-var catalogItem = [];
-function updateCatalogItem() {
-    try_catch(function (args, context) {
-        let _catalogItem = [];
-        let getCatalogItemsRequest = {
-            CatalogVersion: "main"
-        };
-        let result = server.GetCatalogItems(getCatalogItemsRequest);
-        if (result) {
-            log.debug(JSON.stringify(result));
-            log.info(JSON.stringify(result.Catalog));
-            for (let ind in result.Catalog) {
-                let item = result.Catalog[ind];
-                let customData = void 0;
-                if (item.CustomData) {
-                    try {
-                        customData = JSON.parse(item.CustomData);
-                    }
-                    catch (error) { }
-                    ;
-                }
-                _catalogItem[item.ItemId] = {
-                    price: item.VirtualCurrencyPrices,
-                    itemClass: item.ItemClass,
-                    customData: customData,
-                };
-            }
-            catalogItem = _catalogItem;
-        }
-    });
-}
-handlers.pullCatalogItem = try_catch(function (args, context) {
-    return { CatalogItem: JSON.stringify(catalogItem) };
-});
-//harvestRequest=[{soilInstanceId:string,productId:string}]
+//items=[{soilInstanceId:string,productId:string}]
 handlers.harvest = try_catch(function (args, context) {
-    if (args && args.harvestRequest) {
-        for (let ind in args.harvestRequest) {
-            let soilInstanceId = args.harvestRequest[ind].soilInstanceId;
-            let productId = args.harvestRequest[ind].productId;
+    if (args && args.items) {
+        for (let ind in args.items) {
+            let soilInstanceId = args.items[ind].soilInstanceId;
+            let productId = args.items[ind].productId;
             let updateSoilRequest = {
                 PlayFabId: currentPlayerId,
                 ItemInstanceId: soilInstanceId,
@@ -97,16 +63,16 @@ handlers.harvest = try_catch(function (args, context) {
             server.GrantItemsToUser(grantProductRequest);
         }
     }
-    return { harvestResult: "OK" };
+    return { Result: "harvest OK" };
 });
-//sowRequest=[{soilInstanceId:string,species:string,plantTime:number}]
+//items=[{soilInstanceId:string,species:string,plantTime:number}]
 handlers.sow = try_catch(function (args, context) {
-    if (args && args.sowRequest) {
-        for (let ind in args.sowRequest) {
-            let soilInstanceId = args.sowRequest[ind].soilInstanceId;
-            let species = args.sowRequest[ind].species;
-            let plantTime = args.sowRequest[ind].plantTime;
-            let seedInstanceId = args.sowRequest[ind].seedInstanceId;
+    if (args && args.items) {
+        for (let ind in args.items) {
+            let soilInstanceId = args.items[ind].soilInstanceId;
+            let species = args.items[ind].species;
+            let plantTime = args.items[ind].plantTime;
+            let seedInstanceId = args.items[ind].seedInstanceId;
             let updateSoilRequest = {
                 PlayFabId: currentPlayerId,
                 ItemInstanceId: soilInstanceId,
@@ -121,14 +87,13 @@ handlers.sow = try_catch(function (args, context) {
             server.ConsumeItem(consumeRequest);
         }
     }
-    return { sowResult: "OK" };
+    return { Result: "sow OK" };
 });
-// eradicateRequest=[{soilInstanceId:string}]
+// items=[{soilInstanceId:string}]
 handlers.eradicate = try_catch(function (args, context) {
-    let eradicateResult = [];
-    if (args && args.eradicateRequest) {
-        for (let ind in args.eradicateRequest) {
-            let soilInstanceId = args.eradicateRequest[ind].soilInstanceId;
+    if (args && args.items) {
+        for (let ind in args.items) {
+            let soilInstanceId = args.items[ind].soilInstanceId;
             let updateSoilRequest = {
                 PlayFabId: currentPlayerId,
                 ItemInstanceId: soilInstanceId,
@@ -137,32 +102,31 @@ handlers.eradicate = try_catch(function (args, context) {
             server.UpdateUserInventoryItemCustomData(updateSoilRequest);
         }
     }
-    return { eradicateResult: "OK" };
+    return { Result: "eradicate OK" };
 });
-//accelerateRequest=[{soilInstanceId:string, fertilizerInstanceId:string, consumeCount:number, acceleration:number}]
+//items={soils:[{soilInstanceId:string, acceleration:number}], fertilizers:[fertilizerInstanceId:string, consumeCount:number]}
 handlers.accelerate = try_catch(function (args, context) {
-    let accelerateResult = [];
-    if (args && args.accelerateRequest) {
-        for (let ind in args.accelerateRequest) {
-            let soilInstanceId = args.accelerateRequest[ind].soilInstanceId;
-            let acceleration = args.accelerateRequest[ind].acceleration;
-            let fertilizerInstanceId = args.accelerateRequest[ind].fertilizerInstanceId;
-            let consumeCount = args.accelerateRequest[ind].consumeCount;
+    if (args && args.items.soils) {
+        for (let ind in args.items.soils) {
+            let soilInstanceId = args.items.soils[ind].soilInstanceId;
+            let acceleration = args.items.soils[ind].acceleration;
             let updateSoilRequest = {
                 PlayFabId: currentPlayerId,
                 ItemInstanceId: soilInstanceId,
                 Data: { "acceleration": acceleration },
             };
             server.UpdateUserInventoryItemCustomData(updateSoilRequest);
+        }
+        for (let ind in args.items.fertilizers) {
             let consumeRequest = {
                 PlayFabId: currentPlayerId,
-                ItemInstanceId: fertilizerInstanceId,
-                ConsumeCount: consumeCount,
+                ItemInstanceId: args.items.fertilizers[ind].fertilizerInstanceId,
+                ConsumeCount: args.items.fertilizers[ind].consumeCount,
             };
             server.ConsumeItem(consumeRequest);
         }
     }
-    return { accelerateResult: "OK" };
+    return { Result: "accelerate OK" };
 });
 handlers.helloWorld = try_catch(function (args, context) {
     let message = "Hello " + currentPlayerId + "!";
@@ -173,23 +137,35 @@ handlers.helloWorld = try_catch(function (args, context) {
     log.debug("helloWorld:", { input: args.inputValue });
     return { messageValue: message };
 });
-//sellRequest=[{itemInstanceId:string, itemId:string, count:number }]
+//items=[{itemInstanceId:string, itemId:string, count:number }]
 handlers.sell = try_catch(function (args, context) {
-    if (args && args.sellRequest) {
-        if (args.opType == 1) {
-            updateCatalogItem();
+    if (args && args.items) {
+        let catalogItem = [];
+        if (args.needRefresh == true) {
+            let getCatalogItemsRequest = {
+                CatalogVersion: "main"
+            };
+            let result = server.GetCatalogItems(getCatalogItemsRequest);
+            if (result) {
+                for (let ind in result.Catalog) {
+                    let item = result.Catalog[ind];
+                    catalogItem[item.ItemId] = {
+                        price: item.VirtualCurrencyPrices,
+                    };
+                }
+            }
         }
-        for (let ind in args.sellRequest) {
-            let itemInstanceId = args.sellRequest[ind].itemInstanceId;
-            let itemId = args.sellRequest[ind].itemId;
-            let count = args.sellRequest[ind].count;
+        for (let ind in args.items) {
+            let itemInstanceId = args.items[ind].itemInstanceId;
+            let itemId = args.items[ind].itemId;
+            let count = args.items[ind].count;
             let consumeRequest = {
                 PlayFabId: currentPlayerId,
                 ItemInstanceId: itemInstanceId,
                 ConsumeCount: count,
             };
             server.ConsumeItem(consumeRequest);
-            let price = args.opType == 1 ? catalogItem[itemId].price.GD : prices[itemId];
+            let price = args.needRefresh == true ? catalogItem[itemId].price.GD : prices[itemId];
             let addVCRequest = {
                 PlayFabId: currentPlayerId,
                 VirtualCurrency: "GD",
@@ -198,7 +174,7 @@ handlers.sell = try_catch(function (args, context) {
             server.AddUserVirtualCurrency(addVCRequest);
         }
     }
-    return { sellResult: "OK" };
+    return { Result: "sell OK" };
 });
 function try_catch(func) {
     return function (args, context) {

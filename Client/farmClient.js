@@ -25,10 +25,9 @@ var customId = "user-01";
 var player;
 var game = new Phaser.Game(config);
 var _context;
-var storeItem = [];
 var growthStageTime = new Array(30, 80, 150);
 var opreationType = 1;
-var currentSpecies;
+var currentSelectedItem;
 var playFabId;
 
 var userSoil = [];
@@ -42,10 +41,10 @@ var allTypeOfFertilizer = ['common_fertilizer', 'uncommon_fertilizer'];
 
 
 var date;
-var harvestRequest = [];
-var sowRequest = [];
-var eradicateRequest = [];
-var accelerateRequest = [];
+var harvestList = [];
+var sowList = [];
+var eradicateList = [];
+var accelerateList = { soils: [], fertilizers: [] };
 var purchaseList = [];
 var sellList = [];
 var soilOp = [];
@@ -53,6 +52,9 @@ var moneyNum;
 var storeGroup = [];
 var warehouseGroup = [];
 var catalogItem = [];
+var storeItem = [];
+
+
 function sync() {
     accelerate();
     sow();
@@ -63,9 +65,9 @@ function sync() {
 
 function preload() {
     _context = this;
-    let srcs = ['background', 'slogan', 'warehouse', 'store',
+    let srcs = ['background', 'slogan', 'warehouse', 'store', 'sync_data',
         'nothing', 'soil_ready', 'soil_unready',
-        'fertilizer', 'spade', 'GD',
+        'common_fertilizer', 'uncommon_fertilizer', 'spade', 'GD',
         'store_background', 'add', 'sub', 'buy', 'sell', 'close',
         'vegetable_seeds',
     ];
@@ -83,11 +85,11 @@ function create() {
     let sloganYH = 40;
     let sloganX = 630;
     let iconLeft = 200;
-    let iconGap = 130;
+    let iconGap = 110;
 
     this.add.image(0, 0, 'background').setOrigin(0, 0);
-    this.add.image(sloganX, sloganYH, 'slogan')
-    this.add.image(sloganX, sloganYL, 'slogan')
+    this.add.image(sloganX, sloganYH, 'slogan');
+    this.add.image(sloganX, sloganYL, 'slogan');
 
 
     //init soil img
@@ -126,13 +128,16 @@ function create() {
 
         //money icon
         this.add.image(iconLeft, sloganYH, 'GD').setScale(0.5);
-        moneyNum = this.add.text(iconLeft + 25, sloganYH, 'GD:' + userVirtualCurrency.GD, { fontSize: '20px', fontWeight: 'bolder', fill: '#000' });
+        moneyNum = this.add.text(iconLeft + 25, sloganYH, 'GD:' + userVirtualCurrency.GD, { fontSize: '15px', fontWeight: 'bolder', fill: '#000' });
+
+        //sync icon
+        this.add.image(iconLeft + iconGap * (2 + allSpecies.length), sloganYH, 'sync_data').setScale(0.5).setInteractive().on('pointerdown', sync);
 
         for (let i = 0; i < allSpecies.length; i++) {
             //seed icon
-            let _seed = this.add.image(iconLeft + iconGap * (3 + i), sloganYL, allSpecies[i] + '_seed');
+            let _seed = this.add.image(iconLeft + iconGap * (2 + allTypeOfFertilizer.length + i), sloganYL, allSpecies[i] + '_seed').setScale(0.7);
             userSeed[allSpecies[i] + '_seed'] = { count: 0 };
-            userSeed[allSpecies[i] + '_seed'].text = this.add.text(iconLeft + 35 + iconGap * (3 + i), sloganYL, 'x' + userSeed[allSpecies[i] + '_seed'].count, { fontSize: '20px', fontWeight: 'bolder', fill: '#000' });
+            userSeed[allSpecies[i] + '_seed'].text = this.add.text(_seed.x + 15, _seed.y + 15, 'x' + userSeed[allSpecies[i] + '_seed'].count, { fontSize: '15px', fill: '#000' });
             userSeed[allSpecies[i] + '_seed'].setCount = function (_count) {
                 this.count = _count;
                 this.text.setText('x' + _count)
@@ -142,54 +147,50 @@ function create() {
             _seed.on('pointerdown', function () {
                 player.setTexture(allSpecies[i] + '_seed');
                 opreationType = 4 * Math.sign(opreationType);
-                currentSpecies = allSpecies[i]
-            }, this);
+                currentSelectedItem = allSpecies[i]
+            });
 
 
             //product icon
             userProduct[allSpecies[i]] = { count: 0 };
-            this.add.image(iconLeft + iconGap * (2 + i), sloganYH, allSpecies[i]).setScale(0.5);
-            userProduct[allSpecies[i]].text = this.add.text(iconLeft + 25 + iconGap * (2 + i), sloganYH, 'x' + userProduct[allSpecies[i]].count, { fontSize: '20px', fontWeight: 'bolder', fill: '#000' });
+            this.add.image(iconLeft + iconGap * (1.5 + i), sloganYH, allSpecies[i]).setScale(0.5);
+            userProduct[allSpecies[i]].text = this.add.text(iconLeft + 25 + iconGap * (1.5 + i), sloganYH, 'x' + userProduct[allSpecies[i]].count, { fontSize: '15px', fill: '#000' });
             userProduct[allSpecies[i]].setCount = function (_count) {
                 this.count = _count;
                 this.text.setText('x' + _count)
             };
         }
-
-
-        userFertilizer['common_fertilizer'] = { count: 0 };
         //fertilizer icon
-        let _fertilizer = this.add.image(iconLeft + iconGap * 2, sloganYL, 'fertilizer');
-        userFertilizer['common_fertilizer'].text = this.add.text(iconLeft + 35 + iconGap * 2, sloganYL, 'x' + userFertilizer['common_fertilizer'].count, { fontSize: '20px', fontWeight: 'bolder', fill: '#000' });
-        userFertilizer['common_fertilizer'].setCount = function (_count) { this.count = _count; this.text.setText('x' + _count) };
-        _fertilizer.inputEnabled = true;
-        _fertilizer.setInteractive();
-        _fertilizer.on('pointerdown', function () {
-            player.setTexture('fertilizer');
-            opreationType = 3 * Math.sign(opreationType);
-        }, this);
-
+        for (let i = 0; i < allTypeOfFertilizer.length; i++) {
+            userFertilizer[allTypeOfFertilizer[i]] = { count: 0 };
+            let _fertilizer = this.add.image(iconLeft + iconGap * (2 + i), sloganYL, allTypeOfFertilizer[i]).setScale(0.5);
+            userFertilizer[allTypeOfFertilizer[i]].text = this.add.text(_fertilizer.x + 25, _fertilizer.y + 15, 'x' + userFertilizer[allTypeOfFertilizer[i]].count, { fontSize: '15px', fill: '#000' });
+            userFertilizer[allTypeOfFertilizer[i]].setCount = function (_count) { this.count = _count; this.text.setText('x' + _count) };
+            _fertilizer.inputEnabled = true;
+            _fertilizer.setInteractive();
+            _fertilizer.on('pointerdown', function () {
+                player.setTexture(allTypeOfFertilizer[i]);
+                opreationType = 3 * Math.sign(opreationType);
+                currentSelectedItem = allTypeOfFertilizer[i];
+            });
+        }
         //spade icon
-        let buttonSpade = this.add.image(iconLeft + iconGap, sloganYL, 'spade');
+        let buttonSpade = this.add.image(iconLeft + iconGap, sloganYL, 'spade').setScale(0.7);
         buttonSpade.inputEnabled = true;
         buttonSpade.setInteractive();
         buttonSpade.on('pointerdown', function () {
             player.setTexture('spade');
             opreationType = 2 * Math.sign(opreationType);
-        }, this);
+        });
 
         //dude icon 
-        let buttonDude = this.add.image(iconLeft, sloganYL, 'dude').setScale(1.5);
-        buttonDude.inputEnabled = true;
-        buttonDude.setInteractive();
-        buttonDude.on('pointerdown', function () {
-            player.setTexture('dude');
-            sync();
+        this.add.image(iconLeft, sloganYL, 'dude', 4).setInteractive().on('pointerdown', function () {
+            player.setTexture('nothing');
             opreationType = 1 * Math.sign(opreationType);
-        }, this);
+        });
 
-        //dude sprite
-        player = this.physics.add.sprite(100, 450, 'dude', 6);
+        //player sprite
+        player = this.physics.add.sprite(100, 450, 'nothing');
         player.depth = 10;
         player.setCollideWorldBounds(true);
     }
@@ -204,8 +205,8 @@ function update() {
     // if (gameOver) {
     //     return;
     // }
-    if (this.input.x > player.width && this.input.x < config.width - player.width
-        && this.input.y > player.height && this.input.y < config.height - player.height) {
+    if (this.input.x > player.width / 2 && this.input.x < config.width - player.width / 2
+        && this.input.y > player.height / 2 && this.input.y < config.height - player.height / 2) {
         player.x = this.input.x;
         player.y = this.input.y;
     }
@@ -414,15 +415,15 @@ function initWarehouse() {
 
 
 }
-function purchase(btn_buy) {
+function purchase(btn_purchase) {
     let price;
     console.log("try purchase");
-    btn_buy.disableInteractive();
+    btn_purchase.disableInteractive();
     console.log("disable interact");
-    btn_buy.setTint(0x999999);
+    btn_purchase.setTint(0x999999);
     let purchaseReq = {
         "CatalogVersion": "main",
-        "StoreId": "seed_store",
+        "StoreId": "storeA",
         "Items": []
     }
     for (let ind in purchaseList) {
@@ -449,21 +450,27 @@ function purchase(btn_buy) {
                         if (result !== null) {
                             alert("successful purchased ");
                             for (let ind in result.data.Items) {
-                                if (userSeed[result.data.Items[ind].ItemId]) {
-                                    userSeed[result.data.Items[ind].ItemId].setCount(result.data.Items[ind].RemainingUses);
+                                if (result.data.Items[ind].ItemClass == 'seed') {
+                                    if (userSeed[result.data.Items[ind].ItemId]) {
+                                        userSeed[result.data.Items[ind].ItemId].setCount(result.data.Items[ind].RemainingUses);
+                                    }
+                                } else if (result.data.Items[ind].ItemClass == 'fertilizer') {
+                                    if (userFertilizer[result.data.Items[ind].ItemId]) {
+                                        userFertilizer[result.data.Items[ind].ItemId].setCount(result.data.Items[ind].RemainingUses);
+                                    }
                                 }
                                 storeGroup[result.data.Items[ind].ItemId].setCount(0);
                             }
                             purchaseList = [];
                             userVirtualCurrency.GD -= price;
                             moneyNum.setText('GD: ' + userVirtualCurrency.GD);
-                            btn_buy.setTint(0xffffff);
-                            btn_buy.setInteractive();
+                            btn_purchase.setTint(0xffffff);
+                            btn_purchase.setInteractive();
                             console.log("en1")
                         } else if (error !== null) {
                             alert("ConfirmPurchase Error:  " + PlayFab.GenerateErrorReport(error));
-                            btn_buy.setTint(0xffffff);
-                            btn_buy.setInteractive();
+                            btn_purchase.setTint(0xffffff);
+                            btn_purchase.setInteractive();
                             console.log("en2")
                         }
                     })
@@ -471,8 +478,8 @@ function purchase(btn_buy) {
 
                 else if (error !== null) {
                     alert("PayForPurchase Error:  " + PlayFab.GenerateErrorReport(error));
-                    btn_buy.setTint(0xffffff);
-                    btn_buy.setInteractive();
+                    btn_purchase.setTint(0xffffff);
+                    btn_purchase.setInteractive();
                     console.log("en3")
                 }
             });
@@ -481,8 +488,8 @@ function purchase(btn_buy) {
         }
         else if (error !== null) {
             alert("StartPurchase Error:  " + PlayFab.GenerateErrorReport(error));
-            btn_buy.setTint(0xffffff);
-            btn_buy.setInteractive();
+            btn_purchase.setTint(0xffffff);
+            btn_purchase.setInteractive();
         }
 
     });
@@ -490,47 +497,63 @@ function purchase(btn_buy) {
 }
 function sell(btn_sell) {
 
-    let income=0;
+    let income = 0;
     console.log("try sell");
     btn_sell.disableInteractive();
     console.log("disable interact");
     btn_sell.setTint(0x999999);
     let sellReq = {
-        FunctionName:"sell",
-        RevisionSelection:"Live",
-        FunctionParameter:{
-            "sellRequest":[],
+        FunctionName: "sell",
+        RevisionSelection: "Live",
+        FunctionParameter: {
+            // "needRefresh":true,
+            "items": [],
         },
-        GeneratePlayStreamEvent:true
+        GeneratePlayStreamEvent: true
     }
     for (let ind in sellList) {
-        sellReq.FunctionParameter.sellRequest.push({
+        sellReq.FunctionParameter.items.push({
             "itemId": ind,
-            "itemInstanceId":userProduct[ind].instanceId,
+            "itemInstanceId": userProduct[ind].instanceId,
             "count": sellList[ind],
         });
-        income+=sellList[ind]*catalogItem[ind].price.GD;
+        income += sellList[ind] * catalogItem[ind].price.GD;
     }
-    PlayFabClientSDK.ExecuteCloudScript(sellReq, (result, error)=>{
-        if (result != null) {
-            for (let ind in sellList) {
-                userProduct[ind].setCount(userProduct[ind].count-sellList[ind]);
-                warehouseGroup[ind].setCount(0);
-            }
-            userVirtualCurrency.GD += income;
-            moneyNum.setText('GD: ' + userVirtualCurrency.GD);
-            sellList=[];
-        }
-        else if (error != null) {
+    PlayFabClientSDK.ExecuteCloudScript(sellReq, (result, error) => {
+        if (error) {
             alert(PlayFab.GenerateErrorReport(error));
+        } else if (result != null) {
+            if (result.data.Error) {
+                alert(result.data.Error.StackTrace);
+            } else {
+                for (let ind in sellList) {
+                    userProduct[ind].setCount(userProduct[ind].count - sellList[ind]);
+                    warehouseGroup[ind].setCount(0);
+                }
+                userVirtualCurrency.GD += income;
+                moneyNum.setText('GD: ' + userVirtualCurrency.GD);
+                sellList = [];
+            }
         }
+
+
+        if (result != null) {
+
+        }
+        else
+            alert("successful sold");
         btn_sell.setTint(0xffffff);
         btn_sell.setInteractive();
     });
 
 
 }
-function updateCatalogItem(args, context) {
+
+
+//get price,itemClass,customeData of catalog items
+//index
+//catalogItem: itemId
+function getCatalogItem(args, context) {
     let _catalogItem = [];
     let getCatalogItemsRequest = {
         CatalogVersion: "main"
@@ -561,6 +584,7 @@ function updateCatalogItem(args, context) {
         }
     });
 };
+
 function initSoil() {
 
     for (let i = 0; i < userSoil.length; i++) {
@@ -583,13 +607,13 @@ function initSoil() {
                         if (growTime > growthStageTime[2]) {
                             userProduct[child.species].count += 5;
                             userProduct[child.species].text.setText('x' + userProduct[child.species].count);
-                            harvestRequest.push({
+                            harvestList.push({
                                 soilInstanceId: child.instanceId,
                                 productId: child.species + '_product'
                             });
                             soilOp[child.instanceId] = "harvest"
                         } else {
-                            eradicateRequest.push({
+                            eradicateList.push({
                                 soilInstanceId: child.instanceId,
                             });
                             soilOp[child.instanceId] = "eradicate";
@@ -597,55 +621,45 @@ function initSoil() {
                         child.eradicate();
                     }
                     else if (opreationType == 3) {
-                        let num = userFertilizer['common_fertilizer'].count;
+                        let num = userFertilizer[currentSelectedItem].count;
                         if (num > 0) {
                             if (soilOp[child.instanceId] && soilOp[child.instanceId] != accelerate) {
                                 eval(soilOp[child.instanceId] + "()");
                             }
-                            userFertilizer['common_fertilizer'].setCount(num - 1);
-                            child.acceleration = parseInt(child.acceleration) + 80;
+                            userFertilizer[currentSelectedItem].setCount(num - 1);
+                            child.acceleration = parseInt(child.acceleration) + catalogItem[currentSelectedItem].customData.acceleration;
                             updateGrowthStage(child);
                             soilOp[child.instanceId] = "accelerate";
-                            if (accelerateRequest) {
-                                for (let i in accelerateRequest) {
-                                    if (accelerateRequest[i].instanceId == child.instanceId) {
-                                        accelerateRequest[i].consumeCount++;
-                                        return;
-                                    }
-
-                                }
+                            accelerateList.soils[child.instanceId] = { acceleration: child.acceleration };
+                            if (accelerateList.fertilizers[currentSelectedItem]) {
+                                accelerateList.fertilizers[currentSelectedItem].consumeCount += 1;
+                            } else {
+                                accelerateList.fertilizers[currentSelectedItem] = { consumeCount: 1 }
                             }
-                            accelerateRequest.push({
-                                soilInstanceId: child.instanceId,
-                                acceleration: child.acceleration,
-                                fertilizerInstanceId: userFertilizer['common_fertilizer'].instanceId,
-                                consumeCount: 1
-                            });
-
 
                         } else {
-                            alert("no common fertilizer!");
+                            alert("no enough " + currentSelectedItem + " !");
                         }
                     }
                 }
                 else {
                     if (opreationType == 4) {
-                        let num = userSeed[currentSpecies + '_seed'].count;
+                        let num = userSeed[currentSelectedItem + '_seed'].count;
                         if (num > 0) {
                             if (soilOp[child.instanceId]) {
                                 eval(soilOp[child.instanceId] + "()");
                             }
-                            userSeed[currentSpecies + '_seed'].setCount(num - 1);
-                            child.sow(currentSpecies);
-                            sowRequest.push({
+                            userSeed[currentSelectedItem + '_seed'].setCount(num - 1);
+                            child.sow(currentSelectedItem);
+                            sowList.push({
                                 soilInstanceId: child.instanceId,
                                 species: child.species,
                                 plantTime: child.plantTime,
-                                seedInstanceId: userSeed[currentSpecies + '_seed'].instanceId
+                                seedInstanceId: userSeed[currentSelectedItem + '_seed'].instanceId
                             })
                             soilOp[child.instanceId] = "sow";
                         } else {
-                            alert("no " + currentSpecies + " seeds!");
+                            alert("no " + currentSelectedItem + " seeds!");
                         }
                     }
                 }
@@ -689,7 +703,7 @@ function login() {
             alert("Welcome " + customId);
             playFabId = result.data.PlayFabId;
             getInventory();
-            updateCatalogItem();
+            getCatalogItem();
             getStoreItems();
         }
         else if (error !== null) {
@@ -698,40 +712,103 @@ function login() {
     });
 }
 
-function LogResult(result, error) {
-    if (result != null) {
-        // alert(" successful");
-    }
-    else if (error != null) {
+function logResult(result, error, funcOK, funcFA) {
+
+    if (error) {
         alert(PlayFab.GenerateErrorReport(error));
+    } else if (result != null) {
+        if (result.data.Error) {
+            funcFA();
+        } else {
+            funcOK();
+        }
+    }
+
+}
+
+function LogResult(result, error) {
+    if (error) {
+        alert(PlayFab.GenerateErrorReport(error));
+    } else if (result != null) {
+        if (result.data.Error) {
+            alert(result.data.Error.StackTrace);
+        } else {
+            alert(" successful");
+        }
     }
 }
-// function ExecuteHelloWorld() {
-    //     let req = {
-    //         FunctionName: "helloWorld",
-    //         RevisionSelection: "Live",
-    //         FunctionParameter: {
-    //             inputValue: "123",
-    //         }
-    //     }
-
-    //    let result= PlayFabClientSDK.ExecuteCloudScript(req, LogResult);
-    //    if(result){
-    //        alert("ol")
-    //    }else{
-    //        alert("false")
-    //    }
-
-// }
-
-function getCatalogItem() {
+function ExecuteHelloWorld() {
     let req = {
-        FunctionName: "pullCatalogItem",
-        RevisionSelection: "Live",
+        FunctionName: "helloWorld",
+        RevisionSelection: "Specific",
+        SpecificRevision: 1,
+        // FunctionParameter: {
+        //    inputValue: "123",
+        // },
+        GeneratePlayStreamEvent: true
     }
-    PlayFabClientSDK.ExecuteCloudScript(req, (result, error) => {
+    function  funcOK(){
+        alert("ok");
+    }
+    function funcFA(){
+        alert("fa");
+    }
+    PlayFabClientSDK.ExecuteCloudScript(req,(result,error)=>logResult(result,error,funcOK,funcFA));
+}
+
+
+
+
+//get instanceId,count,and soil status of user inventory
+//index------
+//userSoil: int
+//userFertilizer,userSeed,userProduct:itemId
+function getInventory() {
+    PlayFabClientSDK.GetUserInventory({}, (result, error) => {
+
         if (result != null) {
-            catalogItem = result.data.FunctionResult.CatalogItem;
+            userVirtualCurrency = result.data.VirtualCurrency;
+            moneyNum.setText('GD: ' + userVirtualCurrency.GD);
+            let index = 0;
+            for (let ind in result.data.Inventory) {
+                let item = result.data.Inventory[ind];
+                let customData;
+                if (item.CustomData) {
+                    customData = item.CustomData;
+                }
+                switch (item.ItemClass) {
+                    case "soil":
+                        userSoil[index].setTexture('soil_ready')
+                        userSoil[index].ready = true;
+                        soilOp[item.ItemInstanceId] = null;
+                        userSoil[index].instanceId = item.ItemInstanceId;
+                        if (customData && customData.species) {
+                            userSoil[index].sow(customData.species);
+                            userSoil[index].plantTime = customData.plantTime;
+                            userSoil[index].acceleration = customData.acceleration;
+                            updateGrowthStage(userSoil[index]);
+                        }
+                        index++;
+
+                        break;
+                    case "fertilizer":
+                        userFertilizer[item.ItemId].instanceId = item.ItemInstanceId;
+                        userFertilizer[item.ItemId].setCount(item.RemainingUses);
+                        break;
+                    case "seed":
+                        userSeed[item.ItemId].instanceId = item.ItemInstanceId;
+                        userSeed[item.ItemId].setCount(item.RemainingUses);
+                        break;
+                    case "product":
+                        userProduct[item.ItemId].instanceId = item.ItemInstanceId;
+                        userProduct[item.ItemId].setCount(item.RemainingUses);
+                        break;
+
+                }
+
+            }
+            initSoil();
+
         }
         else if (error != null) {
             alert(PlayFab.GenerateErrorReport(error));
@@ -739,12 +816,11 @@ function getCatalogItem() {
     });
 }
 
-function getInventory() {
-    PlayFabClientSDK.GetUserInventory({}, updateUserInventory);
-}
-
+//get price of store items
+//index:-----
+//storeItem:itemId
 function getStoreItems() {
-    PlayFabClientSDK.GetStoreItems({ StoreId: "seed_store" }, (result, error) => {
+    PlayFabClientSDK.GetStoreItems({ StoreId: "storeA" }, (result, error) => {
         if (result !== null) {
             let index = 0;
             storeItem = [];
@@ -762,129 +838,95 @@ function getStoreItems() {
         }
     })
 }
-function updateUserInventory(result, error) {
-
-    if (result != null) {
-        userVirtualCurrency = result.data.VirtualCurrency;
-        moneyNum.setText('GD: ' + userVirtualCurrency.GD);
-        let index = 0;
-        for (let ind in result.data.Inventory) {
-            let item = result.data.Inventory[ind];
-            let customData;
-            if (item.CustomData) {
-                customData = item.CustomData;
-            }
-            switch (item.ItemClass) {
-                case "soil":
-                    userSoil[index].setTexture('soil_ready')
-                    userSoil[index].ready = true;
-                    soilOp[item.ItemInstanceId] = null;
-                    userSoil[index].instanceId = item.ItemInstanceId;
-                    if (customData && customData.species) {
-                        userSoil[index].sow(customData.species);
-                        userSoil[index].plantTime = customData.plantTime;
-                        userSoil[index].acceleration = customData.acceleration;
-                        updateGrowthStage(userSoil[index]);
-                    }
-                    index++;
-
-                    break;
-                case "fertilizer":
-                    if (item.ItemId == 'common_fertilizer') {
-                        userFertilizer[item.ItemId].instanceId = item.ItemInstanceId;
-                        userFertilizer[item.ItemId].setCount(item.RemainingUses);// = { count: item.RemainingUses };
-                    }
-                    break;
-                case "seed":
-                    userSeed[item.ItemId].instanceId = item.ItemInstanceId;
-                    userSeed[item.ItemId].setCount(item.RemainingUses);
-                    break;
-                case "product":
-                    userProduct[item.ItemId].instanceId = item.ItemInstanceId;
-                    userProduct[item.ItemId].setCount(item.RemainingUses);
-                    break;
-
-            }
-
-        }
-        initSoil();
-
-    }
-    else if (error != null) {
-        alert(PlayFab.GenerateErrorReport(error));
-    }
-}
 
 
 function harvest() {
-    if (harvestRequest.length > 0) {
-        for (let i in harvestRequest) {
-            soilOp[harvestRequest[i].instanceId] = null;
+    if (harvestList.length > 0) {
+        for (let i in harvestList) {
+            soilOp[harvestList[i].instanceId] = null;
         }
         let req = {
             FunctionName: "harvest",
             RevisionSelection: "Live",
             FunctionParameter: {
-                harvestRequest: harvestRequest
+                items: harvestList
             },
             GeneratePlayStreamEvent: true
         }
         PlayFabClientSDK.ExecuteCloudScript(req, LogResult);
-        harvestRequest = [];
+        harvestList = [];
     }
 
 }
 function sow() {
-    if (sowRequest.length > 0) {
-        for (let i in sowRequest) {
-            soilOp[sowRequest[i].instanceId] = null;
+    if (sowList.length > 0) {
+        for (let i in sowList) {
+            soilOp[sowList[i].instanceId] = null;
         }
         let req = {
             FunctionName: "sow",
             RevisionSelection: "Live",
             FunctionParameter: {
-                sowRequest: sowRequest
+                items: sowList
             },
             GeneratePlayStreamEvent: true
         }
         PlayFabClientSDK.ExecuteCloudScript(req, LogResult);
-        sowRequest = [];
+        sowList = [];
     }
 
 }
 function eradicate() {
 
-    if (eradicateRequest.length > 0) {
-        for (let i in eradicateRequest) {
-            soilOp[eradicateRequest[i].instanceId] = null;
+    if (eradicateList.length > 0) {
+        for (let i in eradicateList) {
+            soilOp[eradicateList[i].instanceId] = null;
         }
         let req = {
             FunctionName: "eradicate",
             RevisionSelection: "Live",
             FunctionParameter: {
-                eradicateRequest: eradicateRequest
+                items: eradicateList
             },
             GeneratePlayStreamEvent: true
         }
         PlayFabClientSDK.ExecuteCloudScript(req, LogResult);
-        eradicateRequest = [];
+        eradicateList = [];
     }
 
 }
 function accelerate() {
-    if (accelerateRequest.length > 0) {
-        for (let i in accelerateRequest) {
-            soilOp[accelerateRequest[i]] = null;
-        }
+    let x = false;
+    for (let ind in accelerateList.soils) {
+        x = true;
+        break;
+    }
+    if (x) {
         let req = {
             FunctionName: "accelerate",
             RevisionSelection: "Live",
             FunctionParameter: {
-                accelerateRequest: accelerateRequest
+                items: {
+                    soils: [],
+                    fertilizers: [],
+                }
             },
             GeneratePlayStreamEvent: true
         }
+        for (let ind in accelerateList.soils) {
+            soilOp[ind] = null;
+            req.FunctionParameter.items.soils.push({
+                soilInstanceId: ind,
+                acceleration: accelerateList.soils[ind].acceleration
+            })
+        }
+        for (let ind in accelerateList.fertilizers) {
+            req.FunctionParameter.items.fertilizers.push({
+                fertilizerInstanceId: userFertilizer[ind].instanceId,
+                consumeCount: accelerateList.fertilizers[ind].consumeCount
+            })
+        }
         PlayFabClientSDK.ExecuteCloudScript(req, LogResult);
-        accelerateRequest = [];
+        accelerateList = { soils: [], fertilizers: [] };
     }
 }
