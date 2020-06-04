@@ -34,26 +34,31 @@ var userSoil = [];
 var userFertilizer = [];
 var userProduct = [];
 var userSeed = [];
+var userProps = [];
+// var userProps = {
+//     treasureChest: [],
+//     key: [],
+// };
 var userVirtualCurrency = { GD: 0 };
 var allSpecies = ['tomato', 'eggplant', 'sunflower', 'strawberry'];
 var allTypeOfFertilizer = ['common_fertilizer', 'uncommon_fertilizer'];
-
+var treasureChestLevel = ['gold', 'silver', 'bronze'];
 
 
 var date;
-var harvestList = [];
-var sowList = [];
-var eradicateList = [];
-var accelerateList = { soils: [], fertilizers: [] };
+var harvestArgs = { soilInstanceIds: [], productIds: [] };
+var sowArgs = { soilSows: [], seeds: [] };;
+var eradicateArgs = { soilInstanceIds: [] };
+var accelerateArgs = { soilAccelerates: [], fertilizers: [] };
 var purchaseList = [];
 var sellList = [];
 var soilOp = [];
 var moneyNum;
 var storeGroup = [];
 var warehouseGroup = [];
+var treasureChestGroup = [];
 var catalogItem = [];
 var storeItem = [];
-
 
 function sync() {
     accelerate();
@@ -64,18 +69,20 @@ function sync() {
 
 
 function preload() {
+    PlayFab.settings.titleId = "168E0";
     _context = this;
-    let srcs = ['background', 'slogan', 'warehouse', 'store', 'sync_data',
+    let srcs = ['background', 'slogan', 'warehouse', 'store', 'treasure_chest', 'sync_data',
         'nothing', 'soil_ready', 'soil_unready',
         'common_fertilizer', 'uncommon_fertilizer', 'spade', 'GD',
-        'store_background', 'add', 'sub', 'buy', 'sell', 'close',
+        'result_panel','store_background', 'add', 'sub', 'buy', 'sell', 'close', 'open',
         'vegetable_seeds',
     ];
     srcs = srcs.concat(allSpecies);
+    srcs = srcs.concat(treasureChestLevel.map(tc => tc + '_treasure_chest'));
+    srcs = srcs.concat(treasureChestLevel.map(tc => tc + '_key'));
     for (let i = 0; i < srcs.length; i++) {
         this.load.image(srcs[i], 'assets/' + srcs[i] + '.png');
     }
-
     allSpecies.map(sp => this.load.spritesheet(sp + '_seed', 'assets/' + sp + '_seed.png', { frameWidth: 100, frameHeight: 100 }));
     this.load.spritesheet('dude', 'assets/dude.png', { frameWidth: 32, frameHeight: 48 });
 }
@@ -194,11 +201,16 @@ function create() {
         player.depth = 10;
         player.setCollideWorldBounds(true);
     }
-
+    //init userProps
+    for (let i in treasureChestLevel) {
+        userProps[treasureChestLevel[i] + '_treasure_chest'] = { count: 0 };
+        userProps[treasureChestLevel[i] + '_key'] = { count: 0 };
+    }
     //run
     self.setInterval("refreshPlant()", 1000);
     self.setInterval("sync()", 30000);
     login();
+// initTreasureChest();
 
 }
 function update() {
@@ -286,7 +298,7 @@ function initStore() {
     storeGroup.push(btn_close);
     btn_close.on('pointerdown', function () {
         player.setScale(1);
-        opreationType *= -1;
+        opreationType = Math.abs(opreationType);
         for (let i in storeGroup) {
             let child = storeGroup[i];
             child.disableInteractive();
@@ -299,7 +311,7 @@ function initStore() {
     btn_store.inputEnabled = true;
     btn_store.setInteractive();
     btn_store.on('pointerdown', function () {
-        opreationType *= -1;
+        opreationType = -Math.abs(opreationType);
         player.setScale(0);
         for (let i in storeGroup) {
             let child = storeGroup[i];
@@ -307,8 +319,6 @@ function initStore() {
             child.setDepth(5);
         }
     });
-
-
 }
 function initWarehouse() {
 
@@ -391,7 +401,7 @@ function initWarehouse() {
     warehouseGroup.push(btn_close);
     btn_close.on('pointerdown', function () {
         player.setScale(1);
-        opreationType *= -1;
+        opreationType = Math.abs(opreationType);
         for (let i in warehouseGroup) {
             let child = warehouseGroup[i];
             child.disableInteractive();
@@ -400,20 +410,136 @@ function initWarehouse() {
         }
     });
 
-    let btn_warehouse = _context.add.image(100, 600, 'warehouse').setScale(0.5);;
+    let btn_warehouse = _context.add.image(100, 600, 'warehouse').setScale(0.5);
     btn_warehouse.inputEnabled = true;
     btn_warehouse.setInteractive();
     btn_warehouse.on('pointerdown', function () {
+        sync();
+        let i = 0;
+        function checkSyncStatus() {
+            setTimeout(() => {
+                i++;
+                if (accelerateArgs.soilAccelerates.length + sowArgs.soilSows.length + harvestArgs.soilInstanceIds.length + eradicateArgs.soilInstanceIds.length > 0) {
+                    if (i > 8) {
+                        alert("Data synchronization timed out, please restart the game");
+                        return;
+                    }
+                    checkSyncStatus();
+                } else {
+                    getInventory(function () {
+                        player.setScale(0);
+                        opreationType = - Math.abs(opreationType);
+                        for (let i in warehouseGroup) {
+                            let child = warehouseGroup[i];
+                            child.setInteractive();
+                            child.setDepth(5);
+                        }
+                    });
+                }
+            }, 500);
+        }
+        checkSyncStatus();
+    });
+
+
+}
+function initTreasureChest() {
+
+    let bg = _context.add.image(630, 392, 'store_background').setScale(1.5).setDepth(-1);
+    let result_panel=_context.add.image(bg.x,bg.y, 'result_panel').setScale(2.5).setDepth(-1).setOrigin(0.5, 0.5);
+    let result_text=_context.add.text(result_panel.x,result_panel.y-30, "", { fontSize: '20px',fill:'#000000'  }).setDepth(-1).setOrigin(0.5, 0.5);
+    result_panel.setInteractive();
+    result_panel.on('pointerdown', function () {
+        result_panel.setDepth(-1);
+        result_panel.disableInteractive();
+        result_text.setDepth(-1);
+    })
+    treasureChestGroup.push(bg);
+    for (let i = 0; i < treasureChestLevel.length; i++) {
+        let _chest = _context.add.image(420 + 130 * (i % 4), 280, treasureChestLevel[i] + '_treasure_chest').setDepth(-1);
+        Object.assign(_chest, {
+            itemId: treasureChestLevel[i] + '_treasure_chest',
+            inputEnabled: true,
+        })
+        let _chestText = _context.add.text(_chest.x, _chest.y + 60, "x" + userProps[_chest.itemId].count + " ", { fontSize: '20px' }).setDepth(-1).setOrigin(0.5, 0.5);
+        _chestText.fontWeight = 'bolder';
+        treasureChestGroup.push(_chestText);
+        treasureChestGroup[_chest.itemId] = _chest;
+        _chest.setCount = function (_count) {
+            userProps[_chest.itemId].count = _count;
+            _chestText.setText('x' + _count);
+        };
+        let _key = _context.add.image(420 + 130 * (i % 4), 400, treasureChestLevel[i] + '_key').setDepth(-1).setScale(0.7);
+        Object.assign(_key, {
+            itemId: treasureChestLevel[i] + '_key',
+            inputEnabled: true,
+        })
+        let _keyText = _context.add.text(_key.x, _key.y + 60, "x" + userProps[_key.itemId].count + " ", { fontSize: '20px'}).setDepth(-1).setOrigin(0.5, 0.5);
+        _keyText.fontWeight = 'bolder';
+        treasureChestGroup.push(_keyText);
+        treasureChestGroup[_key.itemId] = _key;
+        _key.setCount = function (_count) {
+            userProps[_key.itemId].count = _count;
+            _keyText.setText('x' + _count);
+        };
+        let btn_open = _context.add.image(_key.x, _key.y + 100, "open").setDepth(-1).setScale(0.7);
+        treasureChestGroup.push(btn_open);
+        btn_open.on('pointerdown', function () {
+            if (userProps[_chest.itemId].count > 0 && userProps[_key.itemId].count > 0) {
+                btn_open.disableInteractive();
+                btn_open.setTint(0x999999);
+                PlayFabClientSDK.UnlockContainerItem({ "ContainerItemId": _chest.itemId }, (result, error) => {
+                    btn_open.setInteractive();
+                    btn_open.setTint(0xffffff);
+                    logResult(result, error, function () {
+                        let str = "Congratulations, you got:\n"
+                        for (let i = 0; i < result.data.GrantedItems.length; i++) {
+                            userSeed[result.data.GrantedItems[i].ItemId].setCount(result.data.GrantedItems[i].RemainingUses);
+                            userSeed[result.data.GrantedItems[i].ItemId].instanceId = result.data.GrantedItems[i].ItemInstanceId;
+                            str += "\n\t" + result.data.GrantedItems[i].UsesIncrementedBy + '\t' + result.data.GrantedItems[i].DisplayName;
+                        }
+                        _chest.setCount(userProps[_chest.itemId].count-1);
+                        _key.setCount(userProps[_key.itemId].count-1);
+                        result_panel.setDepth(6);
+                        result_text.setText(str);
+                        result_text.setDepth(6);
+                        result_panel.setInteractive();
+                    }, null)
+                })
+            }else{
+                let x=userProps[_chest.itemId].count<=0?_chest.itemId:_key.itemId
+                alert("You don't have enough "+x);
+            }
+        });
+    }
+
+
+    let btn_close = _context.add.image(900, 200, "close").setDepth(-1);
+    btn_close.inputEnabled = true;
+    treasureChestGroup.push(btn_close);
+    btn_close.on('pointerdown', function () {
+        player.setScale(1);
+        opreationType = Math.abs(opreationType);
+        for (let i in treasureChestGroup) {
+            let child = treasureChestGroup[i];
+            child.disableInteractive();
+            child.setDepth(-1);
+
+        }
+    });
+
+    let btn_treasure_chest = _context.add.image(100, 500, 'treasure_chest').setScale(0.5);
+    btn_treasure_chest.inputEnabled = true;
+    btn_treasure_chest.setInteractive();
+    btn_treasure_chest.on('pointerdown', function () {
         player.setScale(0);
-        opreationType *= -1;
-        for (let i in warehouseGroup) {
-            let child = warehouseGroup[i];
+        opreationType = - Math.abs(opreationType);
+        for (let i in treasureChestGroup) {
+            let child = treasureChestGroup[i];
             child.setInteractive();
             child.setDepth(5);
         }
     });
-
-
 }
 function purchase(btn_purchase) {
     let price;
@@ -430,7 +556,6 @@ function purchase(btn_purchase) {
         purchaseReq.Items.push({
             "ItemId": ind,
             "Quantity": purchaseList[ind],
-
         })
     }
     PlayFabClientSDK.StartPurchase(purchaseReq, (result, error) => {
@@ -466,21 +591,17 @@ function purchase(btn_purchase) {
                             moneyNum.setText('GD: ' + userVirtualCurrency.GD);
                             btn_purchase.setTint(0xffffff);
                             btn_purchase.setInteractive();
-                            console.log("en1")
                         } else if (error !== null) {
                             alert("ConfirmPurchase Error:  " + PlayFab.GenerateErrorReport(error));
                             btn_purchase.setTint(0xffffff);
                             btn_purchase.setInteractive();
-                            console.log("en2")
                         }
                     })
                 }
-
                 else if (error !== null) {
                     alert("PayForPurchase Error:  " + PlayFab.GenerateErrorReport(error));
                     btn_purchase.setTint(0xffffff);
                     btn_purchase.setInteractive();
-                    console.log("en3")
                 }
             });
 
@@ -496,57 +617,39 @@ function purchase(btn_purchase) {
 
 }
 function sell(btn_sell) {
-
     let income = 0;
-    console.log("try sell");
     btn_sell.disableInteractive();
-    console.log("disable interact");
     btn_sell.setTint(0x999999);
     let sellReq = {
         FunctionName: "sell",
         RevisionSelection: "Live",
         FunctionParameter: {
-            // "needRefresh":true,
-            "items": [],
+            "needRefresh": true,
+            "itemSells": [],
         },
         GeneratePlayStreamEvent: true
     }
     for (let ind in sellList) {
-        sellReq.FunctionParameter.items.push({
-            "itemId": ind,
-            "itemInstanceId": userProduct[ind].instanceId,
-            "count": sellList[ind],
+        sellReq.FunctionParameter.itemSells.push({
+            "id": ind,
+            "instanceId": userProduct[ind].instanceId,
+            "consumeCount": sellList[ind],
         });
         income += sellList[ind] * catalogItem[ind].price.GD;
     }
     PlayFabClientSDK.ExecuteCloudScript(sellReq, (result, error) => {
-        if (error) {
-            alert(PlayFab.GenerateErrorReport(error));
-        } else if (result != null) {
-            if (result.data.Error) {
-                alert(result.data.Error.StackTrace);
-            } else {
-                for (let ind in sellList) {
-                    userProduct[ind].setCount(userProduct[ind].count - sellList[ind]);
-                    warehouseGroup[ind].setCount(0);
-                }
-                userVirtualCurrency.GD += income;
-                moneyNum.setText('GD: ' + userVirtualCurrency.GD);
-                sellList = [];
-            }
-        }
-
-
-        if (result != null) {
-
-        }
-        else
-            alert("successful sold");
-        btn_sell.setTint(0xffffff);
         btn_sell.setInteractive();
-    });
-
-
+        btn_sell.setTint(0xffffff);
+        logResult(result, error, function () {
+            for (let ind in sellList) {
+                userProduct[ind].setCount(userProduct[ind].count - sellList[ind]);
+                warehouseGroup[ind].setCount(0);
+            }
+            userVirtualCurrency.GD += income;
+            moneyNum.setText('GD: ' + userVirtualCurrency.GD);
+            sellList = [];
+        }, null);
+    })
 }
 
 
@@ -558,35 +661,29 @@ function getCatalogItem(args, context) {
     let getCatalogItemsRequest = {
         CatalogVersion: "main"
     };
-    PlayFabClientSDK.GetCatalogItems(getCatalogItemsRequest, function (result, error) {
-        if (result != null) {
-            for (let ind in result.data.Catalog) {
-                let item = result.data.Catalog[ind];
-                let customData = void 0;
-                if (item.CustomData) {
-                    try {
-                        customData = JSON.parse(item.CustomData);
-                    }
-                    catch (error) { }
-                    ;
+    PlayFabClientSDK.GetCatalogItems(getCatalogItemsRequest, (result, error) => logResult(result, error, function () {
+        for (let ind in result.data.Catalog) {
+            let item = result.data.Catalog[ind];
+            let customData = void 0;
+            if (item.CustomData) {
+                try {
+                    customData = JSON.parse(item.CustomData);
                 }
-                _catalogItem[item.ItemId] = {
-                    price: item.VirtualCurrencyPrices,
-                    itemClass: item.ItemClass,
-                    customData: customData,
-                }
+                catch (error) { }
+                ;
             }
-            catalogItem = _catalogItem;
-            initWarehouse();
+            _catalogItem[item.ItemId] = {
+                price: item.VirtualCurrencyPrices,
+                itemClass: item.ItemClass,
+                customData: customData,
+            }
         }
-        else if (error != null) {
-            alert(PlayFab.GenerateErrorReport(error));
-        }
-    });
+        catalogItem = _catalogItem;
+        initWarehouse();
+    }, null));
 };
 
 function initSoil() {
-
     for (let i = 0; i < userSoil.length; i++) {
         let child = userSoil[i];
         if (child.ready) {
@@ -607,15 +704,11 @@ function initSoil() {
                         if (growTime > growthStageTime[2]) {
                             userProduct[child.species].count += 5;
                             userProduct[child.species].text.setText('x' + userProduct[child.species].count);
-                            harvestList.push({
-                                soilInstanceId: child.instanceId,
-                                productId: child.species + '_product'
-                            });
+                            harvestArgs.soilInstanceIds.push(child.instanceId);
+                            harvestArgs.productIds.push(child.species + '_product');
                             soilOp[child.instanceId] = "harvest"
                         } else {
-                            eradicateList.push({
-                                soilInstanceId: child.instanceId,
-                            });
+                            eradicateArgs.soilInstanceIds.push(child.instanceId);
                             soilOp[child.instanceId] = "eradicate";
                         }
                         child.eradicate();
@@ -630,11 +723,33 @@ function initSoil() {
                             child.acceleration = parseInt(child.acceleration) + catalogItem[currentSelectedItem].customData.acceleration;
                             updateGrowthStage(child);
                             soilOp[child.instanceId] = "accelerate";
-                            accelerateList.soils[child.instanceId] = { acceleration: child.acceleration };
-                            if (accelerateList.fertilizers[currentSelectedItem]) {
-                                accelerateList.fertilizers[currentSelectedItem].consumeCount += 1;
-                            } else {
-                                accelerateList.fertilizers[currentSelectedItem] = { consumeCount: 1 }
+                            let added = false;
+                            for (let i in accelerateArgs.soilAccelerates) {
+                                if (accelerateArgs.soilAccelerates[i].instanceId == child.instanceId) {
+                                    accelerateArgs.soilAccelerates[i].acceleration = child.acceleration;
+                                    added = true;
+                                    break;
+                                }
+                            }
+                            if (!added) {
+                                accelerateArgs.soilAccelerates.push({
+                                    instanceId: child.instanceId,
+                                    acceleration: child.acceleration,
+                                })
+                            }
+                            added = false;
+                            for (let i in accelerateArgs.fertilizers) {
+                                if (accelerateArgs.fertilizers[i].instanceId == userFertilizer[currentSelectedItem].instanceId) {
+                                    accelerateArgs.fertilizers[i].consumeCount++;
+                                    added = true;
+                                    break;
+                                }
+                            }
+                            if (!added) {
+                                accelerateArgs.fertilizers.push({
+                                    instanceId: userFertilizer[currentSelectedItem].instanceId,
+                                    consumeCount: 1,
+                                })
                             }
 
                         } else {
@@ -651,12 +766,25 @@ function initSoil() {
                             }
                             userSeed[currentSelectedItem + '_seed'].setCount(num - 1);
                             child.sow(currentSelectedItem);
-                            sowList.push({
-                                soilInstanceId: child.instanceId,
+                            sowArgs.soilSows.push({
+                                instanceId: child.instanceId,
                                 species: child.species,
                                 plantTime: child.plantTime,
-                                seedInstanceId: userSeed[currentSelectedItem + '_seed'].instanceId
                             })
+                            let added = false;
+                            for (let i in sowArgs.seeds) {
+                                if (sowArgs.seeds[i].instanceId == userSeed[currentSelectedItem + '_seed'].instanceId) {
+                                    sowArgs.seeds[i].consumeCount++;
+                                    added = true;
+                                    break;
+                                }
+                            }
+                            if (!added) {
+                                sowArgs.seeds.push({
+                                    instanceId: userSeed[currentSelectedItem + '_seed'].instanceId,
+                                    consumeCount: 1
+                                })
+                            }
                             soilOp[child.instanceId] = "sow";
                         } else {
                             alert("no " + currentSelectedItem + " seeds!");
@@ -692,6 +820,7 @@ function refreshPlant() {
         }
     }
 }
+
 function login() {
     let loginRequest = {
         TitleId: "168E0",
@@ -702,6 +831,7 @@ function login() {
         if (result !== null) {
             alert("Welcome " + customId);
             playFabId = result.data.PlayFabId;
+            // ExecuteHelloWorld();
             getInventory();
             getCatalogItem();
             getStoreItems();
@@ -712,31 +842,35 @@ function login() {
     });
 }
 
-function logResult(result, error, funcOK, funcFA) {
-
+function logResult(result, error, funcSuccess, funcFailure) {
     if (error) {
         alert(PlayFab.GenerateErrorReport(error));
     } else if (result != null) {
         if (result.data.Error) {
-            funcFA();
+            if (funcFailure) {
+                funcFailure();
+            } else {
+                alert(result.data.Error.StackTrace);
+            }
         } else {
-            funcOK();
-        }
-    }
-
-}
-
-function LogResult(result, error) {
-    if (error) {
-        alert(PlayFab.GenerateErrorReport(error));
-    } else if (result != null) {
-        if (result.data.Error) {
-            alert(result.data.Error.StackTrace);
-        } else {
-            alert(" successful");
+            if (funcSuccess) {
+                funcSuccess();
+            }
         }
     }
 }
+
+// function LogResult(result, error) {
+//     if (error) {
+//         alert(PlayFab.GenerateErrorReport(error));
+//     } else if (result != null) {
+//         if (result.data.Error) {
+//             alert(result.data.Error.StackTrace);
+//         } else {
+//             alert(" successful");
+//         }
+//     }
+// }
 function ExecuteHelloWorld() {
     let req = {
         FunctionName: "helloWorld",
@@ -747,13 +881,7 @@ function ExecuteHelloWorld() {
         // },
         GeneratePlayStreamEvent: true
     }
-    function  funcOK(){
-        alert("ok");
-    }
-    function funcFA(){
-        alert("fa");
-    }
-    PlayFabClientSDK.ExecuteCloudScript(req,(result,error)=>logResult(result,error,funcOK,funcFA));
+    PlayFabClientSDK.ExecuteCloudScript(req, (result, error) => logResult(result, error, function () { alert("ok") }, function () { alert(result.data.Error.Error) }));
 }
 
 
@@ -763,10 +891,9 @@ function ExecuteHelloWorld() {
 //index------
 //userSoil: int
 //userFertilizer,userSeed,userProduct:itemId
-function getInventory() {
-    PlayFabClientSDK.GetUserInventory({}, (result, error) => {
-
-        if (result != null) {
+function getInventory(myCallback = null) {
+    PlayFabClientSDK.GetUserInventory({}, (result, error) => logResult(result, error,
+        function () {
             userVirtualCurrency = result.data.VirtualCurrency;
             moneyNum.setText('GD: ' + userVirtualCurrency.GD);
             let index = 0;
@@ -803,130 +930,103 @@ function getInventory() {
                         userProduct[item.ItemId].instanceId = item.ItemInstanceId;
                         userProduct[item.ItemId].setCount(item.RemainingUses);
                         break;
-
+                    case "props":
+                        userProps[item.ItemId].instanceId = item.ItemInstanceId;
+                        userProps[item.ItemId].count = item.RemainingUses;
+                        if (item.Container) {
+                            userProps[item.itemId].keyItemId = item.Container.KeyItemId;
+                        }
+                        break;
                 }
 
             }
             initSoil();
-
-        }
-        else if (error != null) {
-            alert(PlayFab.GenerateErrorReport(error));
-        }
-    });
+            initTreasureChest();
+            if (myCallback) {
+                myCallback();
+            }
+        }, null));
 }
 
 //get price of store items
 //index:-----
 //storeItem:itemId
 function getStoreItems() {
-    PlayFabClientSDK.GetStoreItems({ StoreId: "storeA" }, (result, error) => {
-        if (result !== null) {
-            let index = 0;
-            storeItem = [];
-            for (let ind in result.data.Store) {
-                let item = result.data.Store[ind];
-                storeItem[item.ItemId] = {
-                    price: item.VirtualCurrencyPrices,
-                };
-
-            }
-            initStore();
+    PlayFabClientSDK.GetStoreItems({ StoreId: "storeA" }, (result, error) => logResult(result, error, function () {
+        let index = 0;
+        storeItem = [];
+        for (let ind in result.data.Store) {
+            let item = result.data.Store[ind];
+            storeItem[item.ItemId] = {
+                price: item.VirtualCurrencyPrices,
+            };
         }
-        else if (error !== null) {
-            alert("GetStoreItem Error:  " + PlayFab.GenerateErrorReport(error));
-        }
-    })
+        initStore();
+    }, null))
 }
 
 
 function harvest() {
-    if (harvestList.length > 0) {
-        for (let i in harvestList) {
-            soilOp[harvestList[i].instanceId] = null;
+    if (harvestArgs.soilInstanceIds.length > 0) {
+        for (let i in harvestArgs.soilInstanceIds) {
+            soilOp[harvestArgs.soilInstanceIds[i]] = null;
         }
         let req = {
             FunctionName: "harvest",
             RevisionSelection: "Live",
-            FunctionParameter: {
-                items: harvestList
-            },
+            FunctionParameter: harvestArgs,
             GeneratePlayStreamEvent: true
         }
-        PlayFabClientSDK.ExecuteCloudScript(req, LogResult);
-        harvestList = [];
+        PlayFabClientSDK.ExecuteCloudScript(req, (result, error) => logResult(result, error, function () {
+            harvestArgs = { soilInstanceIds: [], productIds: [] };
+        }, null));
     }
 
 }
 function sow() {
-    if (sowList.length > 0) {
-        for (let i in sowList) {
-            soilOp[sowList[i].instanceId] = null;
+    if (sowArgs.soilSows.length > 0) {
+        for (let i in sowArgs.soilSows) {
+            soilOp[sowArgs.soilSows[i].instanceId] = null;
         }
         let req = {
             FunctionName: "sow",
             RevisionSelection: "Live",
-            FunctionParameter: {
-                items: sowList
-            },
+            FunctionParameter: sowArgs,
             GeneratePlayStreamEvent: true
         }
-        PlayFabClientSDK.ExecuteCloudScript(req, LogResult);
-        sowList = [];
+        PlayFabClientSDK.ExecuteCloudScript(req, (result, error) => logResult(result, error, function () {
+            sowArgs = { soilSows: [], seeds: [] };
+        }, null));
     }
-
 }
-function eradicate() {
 
-    if (eradicateList.length > 0) {
-        for (let i in eradicateList) {
-            soilOp[eradicateList[i].instanceId] = null;
+function eradicate() {
+    if (eradicateArgs.soilInstanceIds.length > 0) {
+        for (let i in eradicateArgs.soilInstanceIds) {
+            soilOp[eradicateArgs.soilInstanceIds[i]] = null;
         }
         let req = {
             FunctionName: "eradicate",
             RevisionSelection: "Live",
-            FunctionParameter: {
-                items: eradicateList
-            },
+            FunctionParameter: eradicateArgs,
             GeneratePlayStreamEvent: true
         }
-        PlayFabClientSDK.ExecuteCloudScript(req, LogResult);
-        eradicateList = [];
+        PlayFabClientSDK.ExecuteCloudScript(req, (result, error) => logResult(result, error, function () {
+            eradicateArgs = { soilInstanceIds: [] };
+        }, null));
     }
-
 }
+
 function accelerate() {
-    let x = false;
-    for (let ind in accelerateList.soils) {
-        x = true;
-        break;
-    }
-    if (x) {
+    if (accelerateArgs.soilAccelerates.length > 0) {
         let req = {
             FunctionName: "accelerate",
             RevisionSelection: "Live",
-            FunctionParameter: {
-                items: {
-                    soils: [],
-                    fertilizers: [],
-                }
-            },
+            FunctionParameter: accelerateArgs,
             GeneratePlayStreamEvent: true
         }
-        for (let ind in accelerateList.soils) {
-            soilOp[ind] = null;
-            req.FunctionParameter.items.soils.push({
-                soilInstanceId: ind,
-                acceleration: accelerateList.soils[ind].acceleration
-            })
-        }
-        for (let ind in accelerateList.fertilizers) {
-            req.FunctionParameter.items.fertilizers.push({
-                fertilizerInstanceId: userFertilizer[ind].instanceId,
-                consumeCount: accelerateList.fertilizers[ind].consumeCount
-            })
-        }
-        PlayFabClientSDK.ExecuteCloudScript(req, LogResult);
-        accelerateList = { soils: [], fertilizers: [] };
+        PlayFabClientSDK.ExecuteCloudScript(req, (result, error) => logResult(result, error, function () {
+            accelerateArgs = { soilAccelerates: [], fertilizers: [] };
+        }, null));
     }
 }

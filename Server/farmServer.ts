@@ -49,92 +49,82 @@ var prices = {
 
 
 
-//items=[{soilInstanceId:string,productId:string}]
+//soilInstanceIds=[],productIds[]
 handlers.harvest = try_catch(function (args, context) {
-    if (args && args.items) {
-        for (let ind in args.items) {
-            let soilInstanceId = args.items[ind].soilInstanceId;
-            let productId = args.items[ind].productId;
+    if (args && args.soilInstanceIds && args.productIds) {
+        let grantProductRequest: PlayFabServerModels.GrantItemsToUserRequest = {
+            PlayFabId: currentPlayerId,
+            ItemIds: args.productIds,
+            Annotation: "harvest",
+        };
+        server.GrantItemsToUser(grantProductRequest);
+        for (let i in args.soilInstanceIds) {
             let updateSoilRequest: PlayFabServerModels.UpdateUserInventoryItemDataRequest = {
                 PlayFabId: currentPlayerId,
-                ItemInstanceId: soilInstanceId,
+                ItemInstanceId: args.soilInstanceIds[i],
                 Data: { "species": null, "plantTime": null, "acceleration": "0" },
             };
             server.UpdateUserInventoryItemCustomData(updateSoilRequest);
-            let grantProductRequest: PlayFabServerModels.GrantItemsToUserRequest = {
-                PlayFabId: currentPlayerId,
-                ItemIds: productId,
-                Annotation: "harvest",
-            };
-            server.GrantItemsToUser(grantProductRequest);
         }
-
     }
-
     return { Result: "harvest OK" };
 })
 
-//items=[{soilInstanceId:string,species:string,plantTime:number}]
+
+//soilSows[{instanceId,species,plantTime}] seeds[{instanceId,consumeCount}]
 handlers.sow = try_catch(function (args, context) {
-    if (args && args.items) {
-        for (let ind in args.items) {
-            let soilInstanceId = args.items[ind].soilInstanceId;
-            let species = args.items[ind].species;
-            let plantTime = args.items[ind].plantTime;
-            let seedInstanceId = args.items[ind].seedInstanceId;
+    if (args && args.soilSows && args.seeds) {
+        for (let i in args.soilSows) {
             let updateSoilRequest: PlayFabServerModels.UpdateUserInventoryItemDataRequest = {
                 PlayFabId: currentPlayerId,
-                ItemInstanceId: soilInstanceId,
-                Data: { "species": species, "plantTime": plantTime, "acceleration": "0" },
+                ItemInstanceId: args.soilSows[i].instanceId,
+                Data: { "species": args.soilSows[i].species, "plantTime": args.soilSows[i].plantTime, "acceleration": "0" },
             };
             server.UpdateUserInventoryItemCustomData(updateSoilRequest);
+        }
+        for (let i in args.seeds) {
             let consumeRequest: PlayFabServerModels.ConsumeItemRequest = {
                 PlayFabId: currentPlayerId,
-                ItemInstanceId: seedInstanceId,
-                ConsumeCount: 1,
+                ItemInstanceId: args.seeds[i].instanceId,
+                ConsumeCount: args.seeds[i].consumeCount,
             }
             server.ConsumeItem(consumeRequest);
         }
-
-
     }
     return { Result: "sow OK" };
 })
 
-// items=[{soilInstanceId:string}]
+// soilInstanceIds=[]
 handlers.eradicate = try_catch(function (args, context) {
-    if (args && args.items) {
-        for (let ind in args.items) {
-            let soilInstanceId = args.items[ind].soilInstanceId;
+    if (args && args.soilInstanceIds) {
+        for (let i in args.soilInstanceIds) {
             let updateSoilRequest: PlayFabServerModels.UpdateUserInventoryItemDataRequest = {
                 PlayFabId: currentPlayerId,
-                ItemInstanceId: soilInstanceId,
+                ItemInstanceId: args.soilInstanceIds[i],
                 Data: { "species": null, "plantTime": null, "acceleration": "0" },
             };
             server.UpdateUserInventoryItemCustomData(updateSoilRequest);
         }
     }
-    return {Result: "eradicate OK" };
+    return { Result: "eradicate OK" };
 })
 
-//items={soils:[{soilInstanceId:string, acceleration:number}], fertilizers:[fertilizerInstanceId:string, consumeCount:number]}
+//soilAccelerates:[{instanceId,acceleration}], fertilizers:[{instanceId,consumeCount]}
 handlers.accelerate = try_catch(function (args, context) {
-    if (args && args.items.soils) {
-        for (let ind in args.items.soils) {
-            let soilInstanceId = args.items.soils[ind].soilInstanceId;
-            let acceleration = args.items.soils[ind].acceleration;
+    if (args && args.soilAccelerates) {
+        for (let ind in args.soilAccelerates) {
             let updateSoilRequest: PlayFabServerModels.UpdateUserInventoryItemDataRequest = {
                 PlayFabId: currentPlayerId,
-                ItemInstanceId: soilInstanceId,
-                Data: { "acceleration": acceleration },
+                ItemInstanceId: args.soilAccelerates[ind].instanceId,
+                Data: { "acceleration": args.soilAccelerates[ind].acceleration },
             };
             server.UpdateUserInventoryItemCustomData(updateSoilRequest);
         }
-        for(let ind in args.items.fertilizers){
+        for (let ind in args.fertilizers) {
             let consumeRequest: PlayFabServerModels.ConsumeItemRequest = {
                 PlayFabId: currentPlayerId,
-                ItemInstanceId: args.items.fertilizers[ind].fertilizerInstanceId,
-                ConsumeCount: args.items.fertilizers[ind].consumeCount,
+                ItemInstanceId: args.fertilizers[ind].instanceId,
+                ConsumeCount: args.fertilizers[ind].consumeCount,
             }
             server.ConsumeItem(consumeRequest);
         }
@@ -156,9 +146,9 @@ handlers.helloWorld = try_catch(function (args, context) {
     return { messageValue: message };
 })
 
-//items=[{itemInstanceId:string, itemId:string, count:number }]
+//itemSells=[{instanceId, id, consumeCount }]
 handlers.sell = try_catch(function (args, context) {
-    if (args && args.items) {
+    if (args && args.itemSells) {
         let catalogItem = [];
         if (args.needRefresh == true) {
             let getCatalogItemsRequest = {
@@ -167,34 +157,29 @@ handlers.sell = try_catch(function (args, context) {
             let result = server.GetCatalogItems(getCatalogItemsRequest);
             if (result) {
                 for (let ind in result.Catalog) {
-                    let item = result.Catalog[ind];
-                    catalogItem[item.ItemId] = {
-                        price: item.VirtualCurrencyPrices,
+                    catalogItem[result.Catalog[ind].ItemId] = {
+                        price: result.Catalog[ind].VirtualCurrencyPrices,
                     }
                 }
             }
         }
-        for (let ind in args.items) {
-            let itemInstanceId = args.items[ind].itemInstanceId;
-            let itemId = args.items[ind].itemId;
-            let count = args.items[ind].count;
-            let consumeRequest: PlayFabServerModels.ConsumeItemRequest = {
-                PlayFabId: currentPlayerId,
-                ItemInstanceId: itemInstanceId,
-                ConsumeCount: count,
-            }
-            server.ConsumeItem(consumeRequest);
-            let price = args.needRefresh== true ? catalogItem[itemId].price.GD : prices[itemId];
+        for (let ind in args.itemSells) {
+            let price = args.needRefresh == true ? catalogItem[args.itemSells[ind].id].price.GD : prices[args.itemSells[ind].id];
             let addVCRequest: PlayFabServerModels.AddUserVirtualCurrencyRequest = {
                 PlayFabId: currentPlayerId,
                 VirtualCurrency: "GD",
-                Amount: count * price,
+                Amount: args.itemSells[ind].consumeCount * price,
             }
             server.AddUserVirtualCurrency(addVCRequest);
+            let consumeRequest: PlayFabServerModels.ConsumeItemRequest = {
+                PlayFabId: currentPlayerId,
+                ItemInstanceId:  args.itemSells[ind].instanceId,
+                ConsumeCount:  args.itemSells[ind].consumeCount,
+            }
+            server.ConsumeItem(consumeRequest);
         }
     }
-
-    return {Result: "sell OK" };
+    return { Result: "sell OK" };
 })
 
 function try_catch(func) {
