@@ -341,12 +341,16 @@ function initStore() {
             child.setDepth(-1);
 
         }
+        btn_store.setTint(0xffffff);
+        btn_store.setInteractive();
     });
 
     let btn_store = _context.add.image(200, 600, 'store').setScale(0.5);
     btn_store.inputEnabled = true;
     btn_store.setInteractive();
     btn_store.on('pointerdown', function () {
+        btn_store.setTint(0x999999);
+        btn_store.disableInteractive();
         opreationType = -Math.abs(opreationType);
         player.setScale(0);
         for (let i in storeGroup) {
@@ -444,12 +448,16 @@ function initWarehouse() {
             child.setDepth(-1);
 
         }
+        btn_warehouse.setTint(0xffffff);
+        btn_warehouse.setInteractive();
     });
 
     let btn_warehouse = _context.add.image(100, 600, 'warehouse').setScale(0.5);
     btn_warehouse.inputEnabled = true;
     btn_warehouse.setInteractive();
     btn_warehouse.on('pointerdown', function () {
+        btn_warehouse.setTint(0x999999);
+        btn_warehouse.disableInteractive();
         sync();
         let i = 0;
         function checkSyncStatus() {
@@ -533,8 +541,9 @@ function initTreasureChest() {
                     btn_open.setTint(0xffffff);
                     logResult(result, error, function () {
                         let str = "Congratulations, you got:\n"
+                        
                         for (let i = 0; i < result.data.GrantedItems.length; i++) {
-                            userSeed[result.data.GrantedItems[i].ItemId].setCount(result.data.GrantedItems[i].RemainingUses);
+                            userSeed[result.data.GrantedItems[i].ItemId].setCount(userSeed[result.data.GrantedItems[i].ItemId].count+result.data.GrantedItems[i].UsesIncrementedBy);
                             userSeed[result.data.GrantedItems[i].ItemId].instanceId = result.data.GrantedItems[i].ItemInstanceId;
                             str += "\n\t" + result.data.GrantedItems[i].UsesIncrementedBy + '\t' + result.data.GrantedItems[i].DisplayName;
                         }
@@ -566,12 +575,16 @@ function initTreasureChest() {
             child.setDepth(-1);
 
         }
+        btn_treasure_chest.setTint(0xffffff);
+        btn_treasure_chest.setInteractive();
     });
 
     let btn_treasure_chest = _context.add.image(100, 500, 'treasure_chest').setScale(0.5);
     btn_treasure_chest.inputEnabled = true;
     btn_treasure_chest.setInteractive();
     btn_treasure_chest.on('pointerdown', function () {
+        btn_treasure_chest.setTint(0x999999);
+        btn_treasure_chest.disableInteractive();
         player.setScale(0);
         opreationType = - Math.abs(opreationType);
         for (let i in treasureChestGroup) {
@@ -616,12 +629,12 @@ function purchase(btn_purchase) {
                 let item = result.data.FunctionResult.Result.ItemGrantResults[i];
                 if (item.ItemClass == 'seed') {
                     if (userSeed[item.ItemId]) {
-                        userSeed[item.ItemId].setCount(item.RemainingUses);
+                        userSeed[item.ItemId].setCount(userSeed[item.ItemId].count+item.UsesIncrementedBy);
                         userSeed[item.ItemId].instanceId = item.ItemInstanceId;
                     }
                 } else if (item.ItemClass == 'fertilizer') {
                     if (userFertilizer[item.ItemId]) {
-                        userFertilizer[item.ItemId].setCount(item.RemainingUses);
+                        userFertilizer[item.ItemId].setCount(userSeed[item.ItemId].count+item.UsesIncrementedBy);
                         userFertilizer[item.ItemId].instanceId = item.ItemInstanceId;
                     }
                 }
@@ -665,12 +678,12 @@ function purchase(btn_purchase) {
     //             let item = result.data.FunctionResult.Result.ItemGrantResults[i];
     //             if (item.ItemClass == 'seed') {
     //                 if (userSeed[item.ItemId]) {
-    //                     userSeed[item.ItemId].setCount(item.RemainingUses);
+    //                     userSeed[item.ItemId].setCount(userSeed[item.ItemId].count+item.UsesIncrementedBy);
     //                     userSeed[item.ItemId].instanceId = item.ItemInstanceId;
     //                 }
     //             } else if (item.ItemClass == 'fertilizer') {
     //                 if (userFertilizer[item.ItemId]) {
-    //                     userFertilizer[item.ItemId].setCount(item.RemainingUses);
+    //                     userFertilizer[item.ItemId].setCount(userFertilizer[item.ItemId].count+item.UsesIncrementedBy);
     //                 }
     //             }
     //             storeGroup[item.ItemId].setCount(0);
@@ -711,20 +724,21 @@ function purchase(btn_purchase) {
     //                 }
     //                 PlayFabClientSDK.ConfirmPurchase(payReq, (result, error) => {
     //                     if (result !== null) {
-    //                         for (let ind in result.data.Items) {
-    //                             if (result.data.Items[ind].ItemClass == 'seed') {
-    //                                 if (userSeed[result.data.Items[ind].ItemId]) {
-    //                                     userSeed[result.data.Items[ind].ItemId].setCount(result.data.Items[ind].RemainingUses);
-    //                                     userSeed[result.data.Items[ind].ItemId].instanceId = result.data.Items[ind].ItemInstanceId;
-    //                                 }
-    //                             } else if (result.data.Items[ind].ItemClass == 'fertilizer') {
-    //                                 if (userFertilizer[result.data.Items[ind].ItemId]) {
-    //                                     userFertilizer[result.data.Items[ind].ItemId].setCount(result.data.Items[ind].RemainingUses);
-    //                                     userFertilizer[result.data.Items[ind].ItemId].instanceId = result.data.Items[ind].ItemInstanceId;
-    //                                 }
-    //                             }
-    //                             storeGroup[result.data.Items[ind].ItemId].setCount(0);
-    //                         }
+                            // for (let ind in result.data.Items) {
+                            //     let item = result.data.Items[ind]
+                            //     if (item.ItemClass == 'seed') {
+                            //         if (userSeed[item.ItemId]) {
+                            //             userSeed[item.ItemId].setCount(userSeed[item.ItemId].count+item.UsesIncrementedBy);
+                            //             userSeed[item.ItemId].instanceId = item.ItemInstanceId;
+                            //         }
+                            //     } else if (item.ItemClass == 'fertilizer') {
+                            //         if (userFertilizer[item.ItemId]) {
+                            //             userFertilizer[item.ItemId].setCount(userFertilizer[item.ItemId].count+item.UsesIncrementedBy);
+                            //             userFertilizer[item.ItemId].instanceId = item.ItemInstanceId;
+                            //         }
+                            //     }
+                            //     storeGroup[item.ItemId].setCount(0);
+                            // }
     //                         purchaseList = [];
     //                         userVirtualCurrency.GD -= price;
     //                         moneyNum.setText('GD: ' + userVirtualCurrency.GD);
