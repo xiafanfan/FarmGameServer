@@ -21,7 +21,7 @@ var config = {
         update: update
     }
 };
-var customId = "user-01";
+var customId =null;
 var player;
 var game = new Phaser.Game(config);
 var _context;
@@ -244,7 +244,9 @@ function create() {
     //run
     self.setInterval("refreshPlant()", 1000);
     self.setInterval("sync()", 30000);
-    customId = prompt("Input Your Custom ID:", "");
+    while (!customId) {
+        customId = prompt("Input Your Custom ID:", "").toUpperCase();
+    }
     login();
 
 
