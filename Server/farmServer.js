@@ -42,16 +42,165 @@ var prices = {
     "strawberry": 3,
     "sunflower": 5,
     "tomato": 2,
+    "eggplant_seed": 1,
+    "tomato_seed": 2,
+    "sunflower_seed": 8,
+    "strawberry_seed": 4,
+    "vegetable_seeds": 10,
+    "common_fertilizer": 5,
+    "uncommon_fertilizer": 10,
 };
+//itemBuyIds[]
+handlers.buy = try_catch(function (args, context) {
+    let result = null;
+    if (args.needRefresh == true) {
+        let result = server.GetStoreItems({ StoreId: "storeA" });
+        if (result && result.Store) {
+            for (let i in result.Store) {
+                prices[result.Store[i].ItemId] = result.Store[i].VirtualCurrencyPrices.GD;
+            }
+        }
+        for (let i in result.Store) {
+            prices[result.Store[i].ItemId] = result.Store[i].VirtualCurrencyPrices.GD;
+        }
+    }
+    if (args && args.itemBuyIds) {
+        let grantProductRequest = {
+            PlayFabId: currentPlayerId,
+            ItemIds: args.itemBuyIds,
+            Annotation: "buy",
+        };
+        result = server.GrantItemsToUser(grantProductRequest);
+        if (result && result.ItemGrantResults) {
+            let subVCRequest = {
+                PlayFabId: currentPlayerId,
+                VirtualCurrency: "GD",
+                Amount: 0,
+            };
+            for (let i in args.itemBuyIds) {
+                let price = prices[args.itemBuyIds[i]];
+                subVCRequest.Amount += price;
+            }
+            server.SubtractUserVirtualCurrency(subVCRequest);
+        }
+    }
+    return { Result: result ? result : "buy OK" };
+});
+//itemBuys[id]
+handlers.buy2 = try_catch(function (args, context) {
+    let result = null;
+    if (args.needRefresh == true) {
+        let result = server.GetStoreItems({ StoreId: "storeA" });
+        if (result && result.Store) {
+            for (let i in result.Store) {
+                prices[result.Store[i].ItemId] = result.Store[i].VirtualCurrencyPrices.GD;
+            }
+        }
+        for (let i in result.Store) {
+            prices[result.Store[i].ItemId] = result.Store[i].VirtualCurrencyPrices.GD;
+        }
+    }
+    let subVCRequest = {
+        PlayFabId: currentPlayerId,
+        VirtualCurrency: "GD",
+        Amount: 0,
+    };
+    if (args && args.itemBuys) {
+        let items = [];
+        for (let ind in args.itemBuys) {
+            items.push(ind);
+            subVCRequest.Amount += args.itemBuys[ind] * prices[ind];
+        }
+        let grantProductRequest = {
+            PlayFabId: currentPlayerId,
+            ItemIds: items,
+            Annotation: "buy",
+        };
+        result = server.GrantItemsToUser(grantProductRequest);
+        if (result && result.ItemGrantResults) {
+            let usesToAdd = {};
+            for (let i in result.ItemGrantResults) {
+                if (args.itemBuys[result.ItemGrantResults[i].ItemId] > 1) {
+                    if (result.ItemGrantResults[i].BundleContents) {
+                        for (let j in result.ItemGrantResults[i].BundleContents) {
+                            if (usesToAdd[result.ItemGrantResults[i].BundleContents[j]]) {
+                                usesToAdd[result.ItemGrantResults[i].BundleContents[j]] += args.itemBuys[result.ItemGrantResults[i].ItemId] - 1;
+                            }
+                            else {
+                                usesToAdd[result.ItemGrantResults[i].BundleContents[j]] = args.itemBuys[result.ItemGrantResults[i].ItemId] - 1;
+                            }
+                        }
+                    }
+                    else {
+                        if (usesToAdd[result.ItemGrantResults[i].ItemId]) {
+                            usesToAdd[result.ItemGrantResults[i].ItemId] += args.itemBuys[result.ItemGrantResults[i].ItemId] - 1;
+                        }
+                        else {
+                            usesToAdd[result.ItemGrantResults[i].ItemId] = args.itemBuys[result.ItemGrantResults[i].ItemId] - 1;
+                        }
+                    }
+                }
+            }
+            for (let i in result.ItemGrantResults) {
+                if (usesToAdd[result.ItemGrantResults[i].ItemId]) {
+                    let req = {
+                        PlayFabId: currentPlayerId,
+                        ItemInstanceId: result.ItemGrantResults[i].ItemInstanceId,
+                        UsesToAdd: usesToAdd[result.ItemGrantResults[i].ItemId],
+                    };
+                    result.ItemGrantResults[i].RemainingUses += usesToAdd[result.ItemGrantResults[i].ItemId];
+                    result.ItemGrantResults[i].UsesIncrementedBy += usesToAdd[result.ItemGrantResults[i].ItemId];
+                    server.ModifyItemUses(req);
+                }
+            }
+            server.SubtractUserVirtualCurrency(subVCRequest);
+        }
+    }
+    return { Result: result && result.ItemGrantResults ? { ItemGrantResults: result.ItemGrantResults, Price: subVCRequest.Amount } : "buy2 OK" };
+});
+//soilUpdates[instanceId]{species,plantTime,acceleration},itemConsumes[id]{instanceId,consumeCount},itemGrants[]{id}
+handlers.syncData = try_catch(function (args, context) {
+    if (args && args.soilUpdates) {
+        for (let ind in args.soilUpdates) {
+            let updateSoilRequest = {
+                PlayFabId: currentPlayerId,
+                ItemInstanceId: ind,
+                Data: { "species": args.soilUpdates[ind].species, "plantTime": args.soilUpdates[ind].plantTime, "acceleration": args.soilUpdates[ind].acceleration },
+            };
+            server.UpdateUserInventoryItemCustomData(updateSoilRequest);
+        }
+    }
+    if (args && args.itemConsumes) {
+        for (let ind in args.itemConsumes) {
+            let consumeRequest = {
+                PlayFabId: currentPlayerId,
+                ItemInstanceId: args.itemConsumes[ind].instanceId,
+                ConsumeCount: args.itemConsumes[ind].consumeCount,
+            };
+            server.ConsumeItem(consumeRequest);
+        }
+    }
+    let result = null;
+    if (args && args.itemGrants) {
+        let grantProductRequest = {
+            PlayFabId: currentPlayerId,
+            ItemIds: args.itemGrants,
+            Annotation: "sync data",
+        };
+        result = server.GrantItemsToUser(grantProductRequest);
+    }
+    return { Result: result ? result : "sync OK" };
+});
 //soilInstanceIds=[],productIds[]
 handlers.harvest = try_catch(function (args, context) {
+    let result = null;
     if (args && args.soilInstanceIds && args.productIds) {
         let grantProductRequest = {
             PlayFabId: currentPlayerId,
             ItemIds: args.productIds,
             Annotation: "harvest",
         };
-        server.GrantItemsToUser(grantProductRequest);
+        result = server.GrantItemsToUser(grantProductRequest);
         for (let i in args.soilInstanceIds) {
             let updateSoilRequest = {
                 PlayFabId: currentPlayerId,
@@ -61,9 +210,9 @@ handlers.harvest = try_catch(function (args, context) {
             server.UpdateUserInventoryItemCustomData(updateSoilRequest);
         }
     }
-    return { Result: "harvest OK" };
+    return { Result: result ? result : "harvest OK" };
 });
-//soilSows[{instanceId,species,plantTime}] seeds[{instanceId,consumeCount}]
+//soilSows[]{instanceId,species,plantTime} seeds[]{instanceId,consumeCount}
 handlers.sow = try_catch(function (args, context) {
     if (args && args.soilSows && args.seeds) {
         for (let i in args.soilSows) {
@@ -99,9 +248,9 @@ handlers.eradicate = try_catch(function (args, context) {
     }
     return { Result: "eradicate OK" };
 });
-//soilAccelerates:[{instanceId,acceleration}], fertilizers:[{instanceId,consumeCount]}
+//soilAccelerates:[]{instanceId,acceleration}, fertilizers:[]{instanceId,consumeCount}
 handlers.accelerate = try_catch(function (args, context) {
-    if (args && args.soilAccelerates) {
+    if (args && args.soilAccelerates && args.fertilizers) {
         for (let ind in args.soilAccelerates) {
             let updateSoilRequest = {
                 PlayFabId: currentPlayerId,
@@ -130,7 +279,7 @@ handlers.helloWorld = try_catch(function (args, context) {
     log.debug("helloWorld:", { input: args.inputValue });
     return { messageValue: message };
 });
-//itemSells=[{instanceId, id, consumeCount }]
+//itemSells=[]{instanceId, id, consumeCount }
 handlers.sell = try_catch(function (args, context) {
     if (args && args.itemSells) {
         let catalogItem = [];
@@ -139,7 +288,7 @@ handlers.sell = try_catch(function (args, context) {
                 CatalogVersion: "main"
             };
             let result = server.GetCatalogItems(getCatalogItemsRequest);
-            if (result) {
+            if (result && result.Catalog) {
                 for (let ind in result.Catalog) {
                     catalogItem[result.Catalog[ind].ItemId] = {
                         price: result.Catalog[ind].VirtualCurrencyPrices,
