@@ -1,6 +1,6 @@
-/// <reference path="../node_modules/playfab-web-sdk/src/Typings/PlayFab/PlayFabClientApi.d.ts" />
-/// <reference path="../node_modules/phaser/types/phaser.d.ts" />
-/// <reference path="../node_modules/playfab-web-sdk/src/Typings/Playfab/Playfab.d.ts" />
+/// <reference path="./node_modules/playfab-web-sdk/src/Typings/PlayFab/PlayFabClientApi.d.ts" />
+/// <reference path="./node_modules/phaser/types/phaser.d.ts" />
+/// <reference path="./node_modules/playfab-web-sdk/src/Typings/Playfab/Playfab.d.ts" />
 'use strict';
 
 
@@ -119,7 +119,6 @@ function preload() {
         this.load.image(srcs[i], 'assets/' + srcs[i] + '.png');
     }
     allSpecies.map(sp => this.load.spritesheet(sp + '_seed', 'assets/' + sp + '_seed.png', { frameWidth: 100, frameHeight: 100 }));
-    // this.load.spritesheet('dude', 'assets/dude.png', { frameWidth: 32, frameHeight: 48 });
 }
 function create() {
     //init background
@@ -245,15 +244,13 @@ function create() {
     //run
     self.setInterval("refreshPlant()", 1000);
     self.setInterval("sync()", 30000);
-    customId = prompt("Input Your Custom ID:", "user-01");
+    customId = prompt("Input Your Custom ID:", "");
     login();
-    // initTreasureChest();
+
 
 }
 function update() {
-    // if (gameOver) {
-    //     return;
-    // }
+
     if (this.input.x > player.width / 2 && this.input.x < config.width - player.width / 2
         && this.input.y > player.height / 2 && this.input.y < config.height - player.height / 2) {
         player.x = this.input.x;
@@ -618,10 +615,12 @@ function purchase(btn_purchase) {
                 if (item.ItemClass == 'seed') {
                     if (userSeed[item.ItemId]) {
                         userSeed[item.ItemId].setCount(item.RemainingUses);
+                        userSeed[item.ItemId].instanceId = item.ItemInstanceId;
                     }
                 } else if (item.ItemClass == 'fertilizer') {
                     if (userFertilizer[item.ItemId]) {
                         userFertilizer[item.ItemId].setCount(item.RemainingUses);
+                        userFertilizer[item.ItemId].instanceId = item.ItemInstanceId;
                     }
                 }
                 storeGroup[item.ItemId].setCount(0);
@@ -665,6 +664,7 @@ function purchase(btn_purchase) {
     //             if (item.ItemClass == 'seed') {
     //                 if (userSeed[item.ItemId]) {
     //                     userSeed[item.ItemId].setCount(item.RemainingUses);
+    //                     userSeed[item.ItemId].instanceId = item.ItemInstanceId;
     //                 }
     //             } else if (item.ItemClass == 'fertilizer') {
     //                 if (userFertilizer[item.ItemId]) {
@@ -713,10 +713,12 @@ function purchase(btn_purchase) {
     //                             if (result.data.Items[ind].ItemClass == 'seed') {
     //                                 if (userSeed[result.data.Items[ind].ItemId]) {
     //                                     userSeed[result.data.Items[ind].ItemId].setCount(result.data.Items[ind].RemainingUses);
+    //                                     userSeed[result.data.Items[ind].ItemId].instanceId = result.data.Items[ind].ItemInstanceId;
     //                                 }
     //                             } else if (result.data.Items[ind].ItemClass == 'fertilizer') {
     //                                 if (userFertilizer[result.data.Items[ind].ItemId]) {
     //                                     userFertilizer[result.data.Items[ind].ItemId].setCount(result.data.Items[ind].RemainingUses);
+    //                                     userFertilizer[result.data.Items[ind].ItemId].instanceId = result.data.Items[ind].ItemInstanceId;
     //                                 }
     //                             }
     //                             storeGroup[result.data.Items[ind].ItemId].setCount(0);
@@ -794,7 +796,7 @@ function sell(btn_sell) {
 //get price,itemClass,customeData of catalog items
 //index
 //catalogItem: itemId
-function getCatalogItem(args, context) {
+function getCatalogItem() {
     let _catalogItem = [];
     let getCatalogItemsRequest = {
         CatalogVersion: "main"
@@ -932,18 +934,18 @@ function login() {
     };
     PlayFabClientSDK.LoginWithCustomID(loginRequest, (result, error) => {
         if (result !== null) {
-            if(result.data.NewlyCreated){
-                setTimeout(
-                    alert("Hello new friend, we have prepared a novice pacage for you!"),2000
-                )             
-            }else{
+            if (result.data.NewlyCreated) {
+                alert("Hello new friend, we have prepared a novice pacage for you! \nplease wait a moment")
+            } else {
                 alert("Welcome back " + customId);
             }
             playFabId = result.data.PlayFabId;
-            getInventory(function () {
-                initSoil();
-                initTreasureChest();
-            });
+            setTimeout(function () {
+                getInventory(function () {
+                    initSoil();
+                    initTreasureChest();
+                });
+            }, result.data.NewlyCreated ? 2000 : 0);
             getCatalogItem();
             getStoreItems();
         }
