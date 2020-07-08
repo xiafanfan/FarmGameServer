@@ -7,7 +7,7 @@
 var config = {
     type: Phaser.AUTO,
     width: 1260,
-    height: 784,
+    height: 720,
     physics: {
         "default": 'arcade',
         arcade: {
@@ -21,7 +21,7 @@ var config = {
         update: update
     }
 };
-var customId =null;
+var customId = null;
 var player;
 var game = new Phaser.Game(config);
 var _context;
@@ -88,16 +88,14 @@ function sync() {
             req = reqQueue[0];
         }
         if (req) {
-            buttons["btn_sync"].disableInteractive();
-            buttons["btn_sync"].setTint(0x999999);
+            buttons["btn_sync"].disable();
             syncing = true;
             PlayFabClientSDK.ExecuteCloudScript(req, (result, error) => {
                 syncing = false;
                 logResult(result, error, function () {
                     reqQueue.shift();
                 }, null)
-                buttons["btn_sync"].setInteractive();
-                buttons["btn_sync"].setTint(0xffffff);
+                buttons["btn_sync"].enable();
             });
         }
     }
@@ -120,15 +118,16 @@ function preload() {
     }
     allSpecies.map(sp => this.load.spritesheet(sp + '_seed', 'assets/' + sp + '_seed.png', { frameWidth: 100, frameHeight: 100 }));
 }
+
 function create() {
     //init background
-    let sloganYL = 730;
+    let sloganYL = 670;
     let sloganYH = 40;
     let sloganX = 630;
     let iconLeft = 200;
     let iconGap = 120;
 
-    this.add.image(0, 0, 'background').setOrigin(0, 0);
+    this.add.image(0, -50, 'background').setOrigin(0, 0);
     this.add.image(sloganX, sloganYH, 'slogan');
     this.add.image(sloganX, sloganYL, 'slogan');
 
@@ -138,13 +137,13 @@ function create() {
         let x = Math.floor(i / 3);
         let y = i % 3;
         userSoil[i] = new Object();
-        userSoil[i] = this.add.image(450 - 135 * y + 155 * x, 285 + 50 * y + 60 * x, 'soil_unready');
+        userSoil[i] = this.add.image(450 - 135 * y + 155 * x, 240 + 50 * y + 60 * x, 'soil_unready');
         userSoil[i].ready = false;
         userSoil[i].hasPlant = false;
         userSoil[i].species = null;
         userSoil[i].plantTime = null;
         userSoil[i].acceleration = 0;
-        userSoil[i].plant = this.add.image(450 - 135 * y + 155 * x, 270 + 50 * y + 60 * x, 'nothing');
+        userSoil[i].plant = this.add.image(userSoil[i].x, userSoil[i].y - 15, 'nothing');
         userSoil[i].plant.depth = 2;
         userSoil[i].sow = function (_species) {
             this.species = _species;
@@ -165,7 +164,8 @@ function create() {
 
     }
 
-    //init icon
+
+    //init UI
     {
 
         //money icon
@@ -173,60 +173,41 @@ function create() {
         moneyNum = this.add.text(iconLeft + 25, sloganYH, 'GD:' + userVirtualCurrency.GD, { fontSize: '15px', fontWeight: 'bolder', fill: '#000' });
 
         //sync icon
-        buttons["btn_sync"] = this.add.image(iconLeft + iconGap * (3 + allSpecies.length), sloganYH, 'sync_data').setScale(0.5).setInteractive().on('pointerdown', sync);
+        buttons["btn_sync"] = Button.createNew(this, iconLeft + iconGap * (3 + allSpecies.length), sloganYH, 'sync_data', 0.5, sync, true);
+
+
 
         for (let i = 0; i < allSpecies.length; i++) {
-            //seed icon
-            let _seed = this.add.image(iconLeft + iconGap * (2 + allTypeOfFertilizer.length + i), sloganYL, allSpecies[i] + '_seed').setScale(0.7);
-            userSeed[allSpecies[i] + '_seed'] = { count: 0 };
-            userSeed[allSpecies[i] + '_seed'].text = this.add.text(_seed.x + 15, _seed.y + 15, 'x' + userSeed[allSpecies[i] + '_seed'].count, { fontSize: '15px', fill: '#000' });
-            userSeed[allSpecies[i] + '_seed'].setCount = function (_count) {
-                this.count = _count;
-                this.text.setText('x' + _count)
-            };
-            _seed.inputEnabled = true;
-            _seed.setInteractive();
-            _seed.on('pointerdown', function () {
+            //seed button
+            userSeed[allSpecies[i] + '_seed'] = Item.createNew();
+            ItemButtonWithUses.createNew(this, userSeed[allSpecies[i] + '_seed'], iconLeft + iconGap * (2 + allTypeOfFertilizer.length + i), sloganYL, allSpecies[i] + '_seed', 0.7, 15, 15, function () {
                 player.setTexture(allSpecies[i] + '_seed');
                 opreationType = 4 * Math.sign(opreationType);
                 currentSelectedItem = allSpecies[i]
-            });
-
-
+            })
             //product icon
-            userProduct[allSpecies[i]] = { count: 0 };
-            this.add.image(iconLeft + iconGap * (1.5 + i), sloganYH, allSpecies[i]).setScale(0.5);
-            userProduct[allSpecies[i]].text = this.add.text(iconLeft + 25 + iconGap * (1.5 + i), sloganYH, 'x' + userProduct[allSpecies[i]].count, { fontSize: '15px', fill: '#000' });
-            userProduct[allSpecies[i]].setCount = function (_count) {
-                this.count = _count;
-                this.text.setText('x' + _count)
-            };
+            userProduct[allSpecies[i]] = Item.createNew();
+            ItemIconWithUses.createNew(this, userProduct[allSpecies[i]], iconLeft + iconGap * (1.5 + i), sloganYH, allSpecies[i], 0.5, 25, 0);
         }
-        //fertilizer icon
+
+        //fertilizer button
         for (let i = 0; i < allTypeOfFertilizer.length; i++) {
-            userFertilizer[allTypeOfFertilizer[i]] = { count: 0 };
-            let _fertilizer = this.add.image(iconLeft + iconGap * (2 + i), sloganYL, allTypeOfFertilizer[i]).setScale(0.5);
-            userFertilizer[allTypeOfFertilizer[i]].text = this.add.text(_fertilizer.x + 25, _fertilizer.y + 15, 'x' + userFertilizer[allTypeOfFertilizer[i]].count, { fontSize: '15px', fill: '#000' });
-            userFertilizer[allTypeOfFertilizer[i]].setCount = function (_count) { this.count = _count; this.text.setText('x' + _count) };
-            _fertilizer.inputEnabled = true;
-            _fertilizer.setInteractive();
-            _fertilizer.on('pointerdown', function () {
+            userFertilizer[allTypeOfFertilizer[i]] = Item.createNew();
+            ItemButtonWithUses.createNew(this, userFertilizer[allTypeOfFertilizer[i]], iconLeft + iconGap * (2 + i), sloganYL, allTypeOfFertilizer[i], 0.5, 25, 15, function () {
                 player.setTexture(allTypeOfFertilizer[i]);
                 opreationType = 3 * Math.sign(opreationType);
                 currentSelectedItem = allTypeOfFertilizer[i];
             });
         }
-        //spade icon
-        let buttonSpade = this.add.image(iconLeft + iconGap, sloganYL, 'spade').setScale(0.7);
-        buttonSpade.inputEnabled = true;
-        buttonSpade.setInteractive();
-        buttonSpade.on('pointerdown', function () {
+
+        //spade button
+        Button.createNew(this, iconLeft + iconGap, sloganYL, 'spade', 0.7, function () {
             player.setTexture('spade');
             opreationType = 2 * Math.sign(opreationType);
         });
 
-        //arrow icon 
-        this.add.image(iconLeft, sloganYL, 'arrow').setScale(0.5).setInteractive().on('pointerdown', function () {
+        //arrow button 
+        Button.createNew(this, iconLeft, sloganYL, 'arrow', 0.5, function () {
             player.setTexture('nothing');
             opreationType = 1 * Math.sign(opreationType);
         });
@@ -236,10 +217,11 @@ function create() {
         player.depth = 10;
         player.setCollideWorldBounds(true);
     }
+
     //init userProps
     for (let i in treasureChestLevel) {
-        userProps[treasureChestLevel[i] + '_treasure_chest'] = { count: 0 };
-        userProps[treasureChestLevel[i] + '_key'] = { count: 0 };
+        userProps[treasureChestLevel[i] + '_treasure_chest'] = Item.createNew();
+        userProps[treasureChestLevel[i] + '_key'] = Item.createNew();
     }
     //run
     self.setInterval("refreshPlant()", 1000);
@@ -247,10 +229,11 @@ function create() {
     while (!customId) {
         customId = prompt("Input Your Custom ID:", "").toUpperCase();
     }
+    // customId = "FAN"
     login();
 
-
 }
+
 function update() {
 
     if (this.input.x > player.width / 2 && this.input.x < config.width - player.width / 2
@@ -259,205 +242,69 @@ function update() {
         player.y = this.input.y;
     }
 }
+
 function initStore() {
 
-    let bg = _context.add.image(630, 392, 'store_background').setScale(1.5).setDepth(-1);
-    storeGroup.push(bg);
+    storeGroup.push(_context.add.image(config.width / 2, config.height / 2, 'store_background').setScale(1.5));
 
     let i = 0;
     for (let ind in storeItem) {
-        let _item = _context.add.image(420 + 130 * (i % 4), 260 + 150 * Math.floor(i / 4), ind).setDepth(-1).setScale(0.8);
+        generateTradingItem(_context, "purchase", 420 + 130 * (i % 4), 220 + 150 * Math.floor(i / 4), ind)
         i++;
-        Object.assign(_item, {
-            itemId: ind,
-            count: 0,
-            inputEnabled: true,
-        })
-
-        let _text = _context.add.text(_item.x, _item.y + 50, " " + _item.count + " ", { backgroundColor: "#fff", fontSize: '15px', fill: '#000' }).setDepth(-1).setOrigin(0.5, 0.5);
-        _text.fontWeight = 'bolder';
-        storeGroup.push(_text);
-        let _price = _context.add.text(_item.x, _item.y + 80, " " + "GD: " + storeItem[ind].price.GD, { fontSize: '15px', fill: '#fff' }).setDepth(-1).setOrigin(0.5, 0.5);
-        _price.fontWeight = 'bold';
-        storeGroup.push(_price);
-
-        storeGroup[_item.itemId] = _item;
-        _item.setCount = function (_count) {
-            this.count = _count;
-            _text.setText(' ' + _count + ' ');
-        };
-        let op = ["sub", "add"];
-        for (let i = 0; i < op.length; i++) {
-            let _btn = _context.add.image(_item.x + 40 * (i - 0.5), _item.y + 50, op[i]).setScale(0.3).setDepth(-1).setOrigin(0.5, 0.5);
-            storeGroup.push(_btn);
-            _btn.inputEnabled = true;
-            let timeHandler;
-            let changeNum = function () {
-                let _count = _item.count + 2 * (i - 0.5);
-                if (_count > 0) {
-                    purchaseList[_item.itemId] = _count;
-                } else {
-                    _count = 0;
-                    if (purchaseList[_item.itemId]) {
-                        delete purchaseList[_item.itemId];
-                    }
-                }
-                _item.setCount(_count);
-                return changeNum;
-            }
-            _btn.on('pointerdown', function () {
-                timeHandler = self.setInterval(changeNum(), 100);
-            });
-            _btn.on("pointerup", function () {
-                self.clearInterval(timeHandler);
-            })
-            _btn.on("pointerout", function () {
-                self.clearInterval(timeHandler);
-            })
-        }
     }
 
-
-    let btn_purchase = _context.add.image(800, 500, "buy").setDepth(-1);
-    storeGroup.push(btn_purchase);
-
-    btn_purchase.on('pointerdown', function () {
-        for (let ind in purchaseList) {
-            purchase(btn_purchase);
-            break;
+    storeGroup.push(Button.createNew(_context, 800, 470, "buy", 1, function () {
+        if (Object.keys(purchaseList).length > 0) {
+            purchase(this);
         }
+    }, true));
 
-    });
-
-    let btn_close = _context.add.image(900, 200, "close").setDepth(-1);
-    btn_close.inputEnabled = true;
-    storeGroup.push(btn_close);
-    btn_close.on('pointerdown', function () {
+    storeGroup.push(Button.createNew(_context, 900, 150, "close", 1, function () {
         player.setScale(1);
         opreationType = Math.abs(opreationType);
-        for (let i in storeGroup) {
-            let child = storeGroup[i];
-            child.disableInteractive();
-            child.setDepth(-1);
+        hideGroup(storeGroup);
+        btn_store.enable();
+    }))
 
-        }
-        btn_store.setTint(0xffffff);
-        btn_store.setInteractive();
-    });
-
-    let btn_store = _context.add.image(200, 600, 'store').setScale(0.5);
-    btn_store.inputEnabled = true;
-    btn_store.setInteractive();
-    btn_store.on('pointerdown', function () {
-        btn_store.setTint(0x999999);
-        btn_store.disableInteractive();
+    let btn_store = Button.createNew(_context, 200, 550, 'store', 0.5, function () {
+        this.disable();
+        showGroup(storeGroup);
         opreationType = -Math.abs(opreationType);
         player.setScale(0);
-        for (let i in storeGroup) {
-            let child = storeGroup[i];
-            child.setInteractive();
-            child.setDepth(5);
-        }
-    });
+
+    }, true)
+
+    hideGroup(storeGroup);
 }
+
 function initWarehouse() {
 
-    let bg = _context.add.image(630, 392, 'store_background').setScale(1.5).setDepth(-1);
-    warehouseGroup.push(bg);
+    warehouseGroup.push(_context.add.image(config.width / 2, config.height / 2, 'store_background').setScale(1.5));
 
     let i = 0;
     for (let ind in catalogItem) {
         if (catalogItem[ind].itemClass == "product") {
-            let _item = _context.add.image(420 + 130 * (i % 4), 260 + 150 * Math.floor(i / 4), ind).setDepth(-1).setScale(0.7);
+            generateTradingItem(_context, "sell", 420 + 130 * (i % 4), 280 + 150 * Math.floor(i / 4), ind);
             i++;
-            Object.assign(_item, {
-                itemId: ind,
-                count: 0,
-                inputEnabled: true,
-            })
-
-            let _text = _context.add.text(_item.x, _item.y + 50, " " + _item.count + " ", { backgroundColor: "#fff", fontSize: '15px', fill: '#000' }).setDepth(-1).setOrigin(0.5, 0.5);
-            _text.fontWeight = 'bolder';
-            warehouseGroup.push(_text);
-            let _price = _context.add.text(_item.x, _item.y + 80, " " + "GD: " + catalogItem[ind].price.GD, { fontSize: '15px', fill: '#fff' }).setDepth(-1).setOrigin(0.5, 0.5);
-            _price.fontWeight = 'bold';
-            warehouseGroup.push(_price);
-
-            warehouseGroup[_item.itemId] = _item;
-            _item.setCount = function (_count) {
-                this.count = _count;
-                _text.setText(' ' + _count + ' ');
-            };
-            let op = ["sub", "add"];
-            for (let i = 0; i < op.length; i++) {
-                let _btn = _context.add.image(_item.x + 40 * (i - 0.5), _item.y + 50, op[i]).setScale(0.3).setDepth(-1).setOrigin(0.5, 0.5);
-                warehouseGroup.push(_btn);
-                _btn.inputEnabled = true;
-                let timeHandler;
-                let changeNum = function () {
-                    let _count = _item.count + 2 * (i - 0.5);
-                    if (_count > 0) {
-                        if (userProduct[_item.itemId].count && _count <= userProduct[_item.itemId].count) {
-                            sellList[_item.itemId] = _count;
-                        } else {
-                            _count = userProduct[_item.itemId].count;
-                        }
-                    } else {
-                        _count = 0;
-                        if (sellList[_item.itemId]) {
-                            delete sellList[_item.itemId];
-                        }
-                    }
-                    _item.setCount(_count);
-                    return changeNum;
-                }
-                _btn.on('pointerdown', function () {
-                    timeHandler = self.setInterval(changeNum(), 100);
-                });
-                _btn.on("pointerup", function () {
-                    self.clearInterval(timeHandler);
-                })
-                _btn.on("pointerout", function () {
-                    self.clearInterval(timeHandler);
-                })
-            }
         }
     }
 
-
-    let btn_sell = _context.add.image(800, 500, "sell").setDepth(-1);
-    warehouseGroup["btn_sell"] = btn_sell;
-
-    btn_sell.on('pointerdown', function () {
-        for (let ind in sellList) {
-            sell(btn_sell);
-            break;
+    let btn_sell = Button.createNew(_context, 800, 470, "sell", 1, function () {
+        if (Object.keys(sellList).length > 0) {
+            sell(this);
         }
+    }, true)
+    warehouseGroup.push(btn_sell);
 
-    });
-
-    let btn_close = _context.add.image(900, 200, "close").setDepth(-1);
-    btn_close.inputEnabled = true;
-    warehouseGroup.push(btn_close);
-    btn_close.on('pointerdown', function () {
+    warehouseGroup.push(Button.createNew(_context, 900, 150, "close", 1, function () {
         player.setScale(1);
         opreationType = Math.abs(opreationType);
-        for (let i in warehouseGroup) {
-            let child = warehouseGroup[i];
-            child.disableInteractive();
-            child.setDepth(-1);
+        hideGroup(warehouseGroup);
+        btn_warehouse.enable();
+    }))
 
-        }
-        btn_warehouse.setTint(0xffffff);
-        btn_warehouse.setInteractive();
-    });
-
-    let btn_warehouse = _context.add.image(100, 600, 'warehouse').setScale(0.5);
-    btn_warehouse.inputEnabled = true;
-    btn_warehouse.setInteractive();
-    btn_warehouse.on('pointerdown', function () {
-        btn_warehouse.setTint(0x999999);
-        btn_warehouse.disableInteractive();
+    let btn_warehouse = Button.createNew(_context, 100, 550, 'warehouse', 0.5, function () {
+        this.disable();
         sync();
         let i = 0;
         function checkSyncStatus() {
@@ -470,138 +317,96 @@ function initWarehouse() {
                     }
                     checkSyncStatus();
                 } else {
-                    for (let i in warehouseGroup) {
-                        let child = warehouseGroup[i];
-                        child.setInteractive();
-                        child.setDepth(5);
-                    }
+                    showGroup(warehouseGroup)
                     player.setScale(0);
                     opreationType = - Math.abs(opreationType);
-                    warehouseGroup["btn_sell"].disableInteractive();
-                    warehouseGroup["btn_sell"].setTint(0x999999);
+                    btn_sell.disable();
                     getInventory(function () {
-                        warehouseGroup["btn_sell"].setInteractive();
-                        warehouseGroup["btn_sell"].setTint(0xffffff);
+                        btn_sell.enable();
                     });
                 }
             }, 500);
         }
         checkSyncStatus();
-    });
-
+    }, true);
+    hideGroup(warehouseGroup);
 
 }
+
 function initTreasureChest() {
 
-    let bg = _context.add.image(630, 392, 'store_background').setScale(1.5).setDepth(-1);
-    let result_panel = _context.add.image(bg.x, bg.y, 'result_panel').setScale(2.5).setDepth(-1).setOrigin(0.5, 0.5);
-    let result_text = _context.add.text(result_panel.x, result_panel.y - 30, "", { fontSize: '20px', fill: '#000000' }).setDepth(-1).setOrigin(0.5, 0.5);
-    result_panel.setInteractive();
-    result_panel.on('pointerdown', function () {
-        result_panel.setDepth(-1);
-        result_panel.disableInteractive();
-        result_text.setDepth(-1);
+    treasureChestGroup.push(_context.add.image(config.width / 2, config.height / 2, 'store_background').setScale(1.5));
+    let result_panel = Button.createNew(_context, config.width / 2, config.height / 2, 'result_panel', 2.5, function () {
+        setResultVisible(false);
     })
-    treasureChestGroup.push(bg);
+    let result_text = _context.add.text(config.width / 2, config.height / 2 - 30, "", { fontSize: '20px', fill: '#000000' }).setOrigin(0.5, 0.5);
+    function setResultVisible(visible) {
+        result_panel.setDepth(visible ? 6 : -1);
+        if (visible) {
+            result_panel.setInteractive();
+        } else {
+            result_panel.disableInteractive();
+        }
+        result_text.setDepth(visible ? 7 : -1);
+    }
+    setResultVisible(false);
+
     for (let i = 0; i < treasureChestLevel.length; i++) {
-        let _chest = _context.add.image(450 + 180 * (i % 4), 280, treasureChestLevel[i] + '_treasure_chest').setDepth(-1);
-        Object.assign(_chest, {
-            itemId: treasureChestLevel[i] + '_treasure_chest',
-            inputEnabled: true,
-        })
-        let _chestText = _context.add.text(_chest.x, _chest.y + 60, "x" + userProps[_chest.itemId].count + " ", { fontSize: '20px' }).setDepth(-1).setOrigin(0.5, 0.5);
-        _chestText.fontWeight = 'bolder';
-        treasureChestGroup.push(_chestText);
-        treasureChestGroup[_chest.itemId] = _chest;
-        _chest.setCount = function (_count) {
-            userProps[_chest.itemId].count = _count;
-            _chestText.setText('x' + _count);
-        };
-        let _key = _context.add.image(450 + 180 * (i % 4), 400, treasureChestLevel[i] + '_key').setDepth(-1).setScale(0.7);
-        Object.assign(_key, {
-            itemId: treasureChestLevel[i] + '_key',
-            inputEnabled: true,
-        })
-        let _keyText = _context.add.text(_key.x, _key.y + 60, "x" + userProps[_key.itemId].count + " ", { fontSize: '20px' }).setDepth(-1).setOrigin(0.5, 0.5);
-        _keyText.fontWeight = 'bolder';
-        treasureChestGroup.push(_keyText);
-        treasureChestGroup[_key.itemId] = _key;
-        _key.setCount = function (_count) {
-            userProps[_key.itemId].count = _count;
-            _keyText.setText('x' + _count);
-        };
-        let btn_open = _context.add.image(_key.x, _key.y + 100, "open").setDepth(-1).setScale(0.7);
-        treasureChestGroup.push(btn_open);
-        btn_open.on('pointerdown', function () {
-            if (userProps[_chest.itemId].count > 0 && userProps[_key.itemId].count > 0) {
-                btn_open.disableInteractive();
-                btn_open.setTint(0x999999);
-                PlayFabClientSDK.UnlockContainerItem({ "ContainerItemId": _chest.itemId }, (result, error) => {
-                    btn_open.setInteractive();
-                    btn_open.setTint(0xffffff);
+        let treasureChestId = treasureChestLevel[i] + '_treasure_chest';
+        let keyId = treasureChestLevel[i] + '_key';
+        let x = 450 + 180 * (i % 4);
+        let y = 250;
+        treasureChestGroup.push(ItemIconWithUses.createNew(_context, userProps[treasureChestId], x, y, treasureChestId, 1, -10, 45));
+        treasureChestGroup.push( ItemIconWithUses.createNew(_context, userProps[keyId], x, y + 120, keyId, 0.7, -10, 45));
+        treasureChestGroup.push(Button.createNew(_context, x, y + 220, "open", 0.7, function () {
+            if (userProps[treasureChestId].count > 0 && userProps[keyId].count > 0) {
+                this.disable();
+                PlayFabClientSDK.UnlockContainerItem({ "ContainerItemId": treasureChestId }, (result, error) => {
+                    this.enable();
                     logResult(result, error, function () {
                         let str = "Congratulations, you got:\n"
-                        
                         for (let i = 0; i < result.data.GrantedItems.length; i++) {
-                            userSeed[result.data.GrantedItems[i].ItemId].setCount(userSeed[result.data.GrantedItems[i].ItemId].count+result.data.GrantedItems[i].UsesIncrementedBy);
+                            userSeed[result.data.GrantedItems[i].ItemId].modifyCount(result.data.GrantedItems[i].UsesIncrementedBy);
                             userSeed[result.data.GrantedItems[i].ItemId].instanceId = result.data.GrantedItems[i].ItemInstanceId;
                             str += "\n\t" + result.data.GrantedItems[i].UsesIncrementedBy + '\t' + result.data.GrantedItems[i].DisplayName;
                         }
-                        _chest.setCount(userProps[_chest.itemId].count - 1);
-                        _key.setCount(userProps[_key.itemId].count - 1);
-                        result_panel.setDepth(6);
+                        userProps[treasureChestId].modifyCount(-1);
+                        userProps[keyId].modifyCount(-1);
                         result_text.setText(str);
-                        result_text.setDepth(6);
-                        result_panel.setInteractive();
+                        setResultVisible(true);
                     }, null)
                 })
             } else {
                 let x = userProps[_chest.itemId].count <= 0 ? _chest.itemId : _key.itemId
                 alert("You don't have enough " + x);
             }
-        });
+        }, true));
     }
-
-
-    let btn_close = _context.add.image(900, 200, "close").setDepth(-1);
-    btn_close.inputEnabled = true;
-    treasureChestGroup.push(btn_close);
-    btn_close.on('pointerdown', function () {
+    
+    treasureChestGroup.push(Button.createNew(_context, 900, 150, "close", 1, function () {
         player.setScale(1);
         opreationType = Math.abs(opreationType);
-        for (let i in treasureChestGroup) {
-            let child = treasureChestGroup[i];
-            child.disableInteractive();
-            child.setDepth(-1);
+        hideGroup(treasureChestGroup);
+        btn_treasure_chest.enable();
+    }))
 
-        }
-        btn_treasure_chest.setTint(0xffffff);
-        btn_treasure_chest.setInteractive();
-    });
-
-    let btn_treasure_chest = _context.add.image(100, 500, 'treasure_chest').setScale(0.5);
-    btn_treasure_chest.inputEnabled = true;
-    btn_treasure_chest.setInteractive();
-    btn_treasure_chest.on('pointerdown', function () {
-        btn_treasure_chest.setTint(0x999999);
-        btn_treasure_chest.disableInteractive();
+    let btn_treasure_chest = Button.createNew(_context, 100, 450, 'treasure_chest', 0.5, function () {
+        this.disable();
+        showGroup(treasureChestGroup);
+        opreationType = -Math.abs(opreationType);
         player.setScale(0);
-        opreationType = - Math.abs(opreationType);
-        for (let i in treasureChestGroup) {
-            let child = treasureChestGroup[i];
-            child.setInteractive();
-            child.setDepth(5);
-        }
-    });
+
+    }, true)
+
+    hideGroup(treasureChestGroup);
 }
+
 function purchase(btn_purchase) {
+
     date = new Date();
     let now = date.getTime();
     let price = 0;
-    console.log("try purchase");
-    btn_purchase.disableInteractive();
-    console.log("disable interact");
-    btn_purchase.setTint(0x999999);
+    btn_purchase.disable()
     //////buy2
     let buyReq = {
         FunctionName: "buy2",
@@ -617,30 +422,29 @@ function purchase(btn_purchase) {
     }
     if (price > userVirtualCurrency.GD) {
         alert("no enough GD!");
-        btn_purchase.setInteractive();
-        btn_purchase.setTint(0xffffff);
+        btn_purchase.enable();
         return;
     }
     PlayFabClientSDK.ExecuteCloudScript(buyReq, (result, error) => {
-        btn_purchase.setInteractive();
-        btn_purchase.setTint(0xffffff);
+        btn_purchase.enable();
         logResult(result, error, function () {
             for (let i in result.data.FunctionResult.Result.ItemGrantResults) {
                 let item = result.data.FunctionResult.Result.ItemGrantResults[i];
                 if (item.ItemClass == 'seed') {
                     if (userSeed[item.ItemId]) {
-                        userSeed[item.ItemId].setCount(userSeed[item.ItemId].count+item.UsesIncrementedBy);
+                        userSeed[item.ItemId].modifyCount(item.UsesIncrementedBy);
                         userSeed[item.ItemId].instanceId = item.ItemInstanceId;
                     }
                 } else if (item.ItemClass == 'fertilizer') {
                     if (userFertilizer[item.ItemId]) {
-                        userFertilizer[item.ItemId].setCount(userSeed[item.ItemId].count+item.UsesIncrementedBy);
+                        userFertilizer[item.ItemId].modifyCount(item.UsesIncrementedBy);
                         userFertilizer[item.ItemId].instanceId = item.ItemInstanceId;
                     }
                 }
-                storeGroup[item.ItemId].setCount(0);
+                storeGroup[item.ItemId].setText(" " + 0 + " ");
+                delete purchaseList[item.ItemId]
             }
-            purchaseList = [];
+
             userVirtualCurrency.GD -= result.data.FunctionResult.Result.Price;
             moneyNum.setText('GD: ' + userVirtualCurrency.GD);
             date = new Date();
@@ -649,133 +453,10 @@ function purchase(btn_purchase) {
         }, null);
     })
 
-    ////////////////////buy
-    // let buyReq = {
-    //     FunctionName: "buy",
-    //     RevisionSelection: "Live",
-    //     FunctionParameter: {
-    //         "itemBuyIds": [],
-    //     },
-    //     GeneratePlayStreamEvent: true
-    // }
-    // for (let ind in purchaseList) {
-    //     for (let i = 0; i < purchaseList[ind]; i++) {
-    //         buyReq.FunctionParameter.itemBuyIds.push(ind);
-    //     }
-    //     price += purchaseList[ind] * storeItem[ind].price.GD;
-    // }
-    // if (price > userVirtualCurrency.GD) {
-    //     alert("no enough GD!");
-    //     btn_purchase.setInteractive();
-    //     btn_purchase.setTint(0xffffff);
-    //     return;
-    // }
-    // PlayFabClientSDK.ExecuteCloudScript(buyReq, (result, error) => {
-    //     btn_purchase.setInteractive();
-    //     btn_purchase.setTint(0xffffff);
-    //     logResult(result, error, function () {
-    //         for (let i in result.data.FunctionResult.Result.ItemGrantResults) {
-    //             let item = result.data.FunctionResult.Result.ItemGrantResults[i];
-    //             if (item.ItemClass == 'seed') {
-    //                 if (userSeed[item.ItemId]) {
-    //                     userSeed[item.ItemId].setCount(userSeed[item.ItemId].count+item.UsesIncrementedBy);
-    //                     userSeed[item.ItemId].instanceId = item.ItemInstanceId;
-    //                 }
-    //             } else if (item.ItemClass == 'fertilizer') {
-    //                 if (userFertilizer[item.ItemId]) {
-    //                     userFertilizer[item.ItemId].setCount(userFertilizer[item.ItemId].count+item.UsesIncrementedBy);
-    //                 }
-    //             }
-    //             storeGroup[item.ItemId].setCount(0);
-    //         }
-    //         purchaseList = [];
-    //         userVirtualCurrency.GD -= price;
-    //         moneyNum.setText('GD: ' + userVirtualCurrency.GD);
-    //         date = new Date();
-    //         console.log(date.getTime() - now);
-    //         alert("successful purchased ");
-    //     }, null);
-    // })
-
-    ////////////////purchase
-    // let purchaseReq = {
-    //     "CatalogVersion": "main",
-    //     "StoreId": "storeA",
-    //     "Items": []
-    // }
-    // for (let ind in purchaseList) {
-    //     purchaseReq.Items.push({
-    //         "ItemId": ind,
-    //         "Quantity": purchaseList[ind],
-    //     })
-    // }
-    // PlayFabClientSDK.StartPurchase(purchaseReq, (result, error) => {
-    //     if (result !== null) {
-    //         let payReq = {
-    //             "OrderId": result.data.OrderId,
-    //             "ProviderName": result.data.PaymentOptions[0].ProviderName,
-    //             "Currency": result.data.PaymentOptions[0].Currency
-    //         }
-    //         price = result.data.PaymentOptions[0].Price;
-    //         PlayFabClientSDK.PayForPurchase(payReq, (result, error) => {
-    //             if (result !== null) {
-    //                 let payReq = {
-    //                     "OrderId": result.data.OrderId,
-    //                 }
-    //                 PlayFabClientSDK.ConfirmPurchase(payReq, (result, error) => {
-    //                     if (result !== null) {
-                            // for (let ind in result.data.Items) {
-                            //     let item = result.data.Items[ind]
-                            //     if (item.ItemClass == 'seed') {
-                            //         if (userSeed[item.ItemId]) {
-                            //             userSeed[item.ItemId].setCount(userSeed[item.ItemId].count+item.UsesIncrementedBy);
-                            //             userSeed[item.ItemId].instanceId = item.ItemInstanceId;
-                            //         }
-                            //     } else if (item.ItemClass == 'fertilizer') {
-                            //         if (userFertilizer[item.ItemId]) {
-                            //             userFertilizer[item.ItemId].setCount(userFertilizer[item.ItemId].count+item.UsesIncrementedBy);
-                            //             userFertilizer[item.ItemId].instanceId = item.ItemInstanceId;
-                            //         }
-                            //     }
-                            //     storeGroup[item.ItemId].setCount(0);
-                            // }
-    //                         purchaseList = [];
-    //                         userVirtualCurrency.GD -= price;
-    //                         moneyNum.setText('GD: ' + userVirtualCurrency.GD);
-    //                         date=new Date();
-    //                         console.log(date.getTime()-now);
-    //                         btn_purchase.setTint(0xffffff);
-    //                         btn_purchase.setInteractive();
-    //                         alert("successful purchased ");
-    //                     } else if (error !== null) {
-    //                         alert("ConfirmPurchase Error:  " + PlayFab.GenerateErrorReport(error));
-    //                         btn_purchase.setTint(0xffffff);
-    //                         btn_purchase.setInteractive();
-    //                     }
-    //                 })
-    //             }
-    //             else if (error !== null) {
-    //                 alert("PayForPurchase Error:  " + PlayFab.GenerateErrorReport(error));
-    //                 btn_purchase.setTint(0xffffff);
-    //                 btn_purchase.setInteractive();
-    //             }
-    //         });
-
-
-    //     }
-    //     else if (error !== null) {
-    //         alert("StartPurchase Error:  " + PlayFab.GenerateErrorReport(error));
-    //         btn_purchase.setTint(0xffffff);
-    //         btn_purchase.setInteractive();
-    //     }
-
-    // });
-
 }
 function sell(btn_sell) {
     let income = 0;
-    btn_sell.disableInteractive();
-    btn_sell.setTint(0x999999);
+    btn_sell.disable();
     let sellReq = {
         FunctionName: "sell",
         RevisionSelection: "Live",
@@ -794,16 +475,15 @@ function sell(btn_sell) {
         income += sellList[ind] * catalogItem[ind].price.GD;
     }
     PlayFabClientSDK.ExecuteCloudScript(sellReq, (result, error) => {
-        btn_sell.setInteractive();
-        btn_sell.setTint(0xffffff);
+        btn_sell.enable();
         logResult(result, error, function () {
             for (let ind in sellList) {
-                userProduct[ind].setCount(userProduct[ind].count - sellList[ind]);
-                warehouseGroup[ind].setCount(0);
+                userProduct[ind].modifyCount(-sellList[ind]);
+                warehouseGroup[ind].setText(" " + 0 + " ");
+                delete sellList[ind];
             }
             userVirtualCurrency.GD += income;
             moneyNum.setText('GD: ' + userVirtualCurrency.GD);
-            sellList = [];
         }, null);
     })
 }
@@ -825,8 +505,7 @@ function getCatalogItem() {
                 try {
                     customData = JSON.parse(item.CustomData);
                 }
-                catch (error) { }
-                ;
+                catch (error) { } 
             }
             _catalogItem[item.ItemId] = {
                 price: item.VirtualCurrencyPrices,
@@ -855,7 +534,7 @@ function initSoil() {
                         let growTime = (date.getTime() - child.plantTime) / 1000;
                         growTime = parseFloat(growTime) + parseInt(child.acceleration);
                         if (growTime > growthStageTime[2]) {
-                            userProduct[child.species].setCount(userProduct[child.species].count += 5);
+                            userProduct[child.species].modifyCount( 5);
                             itemGrants.push(child.species + '_product')
                         }
                         child.eradicate();
@@ -894,7 +573,7 @@ function initSoil() {
                     if (opreationType == 4) {
                         let num = userSeed[currentSelectedItem + '_seed'].count;
                         if (num > 0) {
-                            userSeed[currentSelectedItem + '_seed'].setCount(num - 1);
+                            userSeed[currentSelectedItem + '_seed'].modifyCount(-1);
                             child.sow(currentSelectedItem);
                             soilUpdates[child.instanceId] = {
                                 species: child.species,
@@ -934,6 +613,7 @@ function updateGrowthStage(child) {
         child.plant.setFrame(1);
     }
 }
+
 function refreshPlant() {
     for (let i = 0; i < userSoil.length; i++) {
         if (userSoil[i].hasPlant) {
@@ -988,31 +668,6 @@ function logResult(result, error, funcSuccess, funcFailure) {
         }
     }
 }
-
-// function LogResult(result, error) {
-//     if (error) {
-//         alert(PlayFab.GenerateErrorReport(error));
-//     } else if (result != null) {
-//         if (result.data.Error) {
-//             alert(result.data.Error.StackTrace);
-//         } else {
-//             alert(" successful");
-//         }
-//     }
-// }
-function ExecuteHelloWorld() {
-    let req = {
-        FunctionName: "helloWorld",
-        RevisionSelection: "Specific",
-        SpecificRevision: 1,
-        // FunctionParameter: {
-        //    inputValue: "123",
-        // },
-        GeneratePlayStreamEvent: true
-    }
-    PlayFabClientSDK.ExecuteCloudScript(req, (result, error) => logResult(result, error, function () { alert("ok") }, function () { alert(result.data.Error.Error) }));
-}
-
 
 
 
@@ -1089,4 +744,153 @@ function getStoreItems() {
         }
         initStore();
     }, null))
+}
+
+
+var Item = {
+    createNew: function () {
+        let item = {};
+        item.count = 0;
+        //显示其数量的标签
+        item.usesLabels = [];
+        item.setCount = function (_count = this.count) {
+            this.count = _count;
+            for (let i = 0; i < this.usesLabels.length; i++) {
+                this.usesLabels[i].setText('x' + _count)
+            }
+        };
+        item.modifyCount = function (_count) {
+            this.setCount(this.count + _count)
+        }
+        return item
+    }
+}
+var ItemIconWithUses = {
+    createNew: function (_context, _linkedItem, x, y, texture, scale, textOffsetX, textOffsetY) {
+        let icon = {};
+        icon.image = _context.add.image(x, y, texture).setScale(scale);
+        icon.text = _context.add.text(x + textOffsetX, y + textOffsetY, 'x' + _linkedItem.count, { fontSize: '15px', fill: '#000' })
+        if (_linkedItem) {
+            _linkedItem.usesLabels.push(icon.text)
+        }
+        icon.setDepth=function(depth){
+            icon.image.setDepth(depth);
+            icon.text.setDepth(depth);
+        }
+        return icon;
+    }
+}
+
+var ItemButtonWithUses = {
+    createNew: function (_context, _linkedItem, x, y, texture, scale, textOffsetX, textOffsetY, onClickFunc) {
+        let button = ItemIconWithUses.createNew(_context, _linkedItem, x, y, texture, scale, textOffsetX, textOffsetY);
+        button.image.inputEnabled = true;
+        button.image.setInteractive();
+        button.image.on('pointerdown', onClickFunc);
+        return button;
+    }
+}
+
+var Button = {
+    createNew: function (_context, x, y, texture, scale, onClickFunc, needEnable = false) {
+        let button = {};
+        button = _context.add.image(x, y, texture).setScale(scale);
+        button.inputEnabled = true;
+        button.setInteractive();
+        button.on('pointerdown', onClickFunc);
+        if (needEnable) {
+            button.disable = function () {
+                this.disableInteractive();
+                this.setTint(0x999999)
+            }
+            button.enable = function () {
+                this.setInteractive();
+                this.setTint(0xffffff);
+            }
+        }
+        return button
+    }
+}
+
+function generateTradingItem(_context, tradeType, x, y, id) {
+    let target;
+    let group;
+    let price = 0;
+    if (tradeType == "purchase") {
+        target = purchaseList;
+        group = storeGroup;
+        price = storeItem[id].price.GD;
+    }
+    else if (tradeType == "sell") {
+        target = sellList;
+        group = warehouseGroup;
+        price = catalogItem[id].price.GD;
+    }
+
+    //图像
+    group.push(_context.add.image(x, y, id).setScale(0.8));
+    //交易数目
+    let _text = _context.add.text(x, y + 50, " " + 0 + " ", { backgroundColor: "#fff", fontSize: '15px', fill: '#000' }).setOrigin(0.5, 0.5);
+    _text.fontWeight = 'bolder';
+    // group.push(_text);
+    group[id] = _text;
+    if (target[id]) {
+        _text.setText(" " + target[id] + " ") //初始化
+    }
+    //价格
+    let _price = _context.add.text(x, y + 80, " " + "GD: " + price, { fontSize: '15px', fill: '#fff' }).setOrigin(0.5, 0.5);
+    _price.fontWeight = 'bold';
+    group.push(_price);
+    //调整数目
+    let op = ["sub", "add"];
+    for (let i = 0; i < op.length; i++) {
+        let _btn = _context.add.image(x + 40 * (i - 0.5), y + 50, op[i]).setScale(0.3).setOrigin(0.5, 0.5);
+        group.push(_btn);
+        _btn.inputEnabled = true;
+        let timeHandler;
+
+        let changeNum = function () {
+            let _count = (target[id] ? target[id] : 0) + 2 * (i - 0.5);
+            _count = Math.min(tradeType == "sell" ? userProduct[id].count : (tradeType == "purchase" ? 100 : 0), _count)
+            if (_count > 0) {
+                target[id] = _count;
+            } else {
+                _count = 0;
+                if (target[id]) {
+                    delete target[id];
+                }
+            }
+            _text.setText(" " + _count + " ")
+            return changeNum;
+        }
+        _btn.on('pointerdown', function () {
+            timeHandler = self.setInterval(changeNum(), 100);
+        });
+        _btn.on("pointerup", function () {
+            self.clearInterval(timeHandler);
+        })
+        _btn.on("pointerout", function () {
+            self.clearInterval(timeHandler);
+        })
+    }
+}
+
+
+function showGroup(group) {
+    for (let i in group) {
+        let child = group[i];
+        if (child._events&&Object.keys(child._events).length > 0) {
+            child.setInteractive();
+        }
+        child.setDepth(5);
+    }
+}
+function hideGroup(group) {
+    for (let i in group) {
+        let child = group[i];
+        if (child._events&&Object.keys(child._events).length > 0) {
+            child.disableInteractive();
+        }
+        child.setDepth(-1);
+    }
 }
