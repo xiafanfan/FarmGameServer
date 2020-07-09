@@ -35,10 +35,6 @@ var userFertilizer = [];
 var userProduct = [];
 var userSeed = [];
 var userProps = [];
-// var userProps = {
-//     treasureChest: [],
-//     key: [],
-// };
 var userVirtualCurrency = { GD: 0 };
 var allSpecies = ['tomato', 'eggplant', 'sunflower', 'strawberry'];
 var allTypeOfFertilizer = ['common_fertilizer', 'uncommon_fertilizer'];
@@ -121,13 +117,13 @@ function preload() {
 
 function create() {
     //init background
-    let sloganYL = 670;
+    let sloganYL = 680;
     let sloganYH = 40;
     let sloganX = 630;
     let iconLeft = 200;
     let iconGap = 120;
 
-    this.add.image(0, -50, 'background').setOrigin(0, 0);
+    this.add.image(0, 0, 'background').setOrigin(0, 0).setDepth(-2);
     this.add.image(sloganX, sloganYH, 'slogan');
     this.add.image(sloganX, sloganYL, 'slogan');
 
@@ -137,7 +133,7 @@ function create() {
         let x = Math.floor(i / 3);
         let y = i % 3;
         userSoil[i] = new Object();
-        userSoil[i] = this.add.image(450 - 135 * y + 155 * x, 240 + 50 * y + 60 * x, 'soil_unready');
+        userSoil[i] = this.add.image(450 - 135 * y + 155 * x, 255 + 50 * y + 60 * x, 'soil_unready').setDepth(-1);
         userSoil[i].ready = false;
         userSoil[i].hasPlant = false;
         userSoil[i].species = null;
@@ -169,11 +165,11 @@ function create() {
     {
 
         //money icon
-        this.add.image(iconLeft, sloganYH, 'GD').setScale(0.5);
+        this.add.image(iconLeft, sloganYH, 'GD');
         moneyNum = this.add.text(iconLeft + 25, sloganYH, 'GD:' + userVirtualCurrency.GD, { fontSize: '15px', fontWeight: 'bolder', fill: '#000' });
 
         //sync icon
-        buttons["btn_sync"] = Button.createNew(this, iconLeft + iconGap * (3 + allSpecies.length), sloganYH, 'sync_data', 0.5, sync, true);
+        buttons["btn_sync"] = Button.createNew(this, iconLeft + iconGap * (3 + allSpecies.length), sloganYH, 'sync_data', 1, sync, true);
 
 
 
@@ -187,13 +183,13 @@ function create() {
             })
             //product icon
             userProduct[allSpecies[i]] = Item.createNew();
-            ItemIconWithUses.createNew(this, userProduct[allSpecies[i]], iconLeft + iconGap * (1.5 + i), sloganYH, allSpecies[i], 0.5, 25, 0);
+            ItemIconWithUses.createNew(this, userProduct[allSpecies[i]], iconLeft + iconGap * (1.5 + i), sloganYH, allSpecies[i], 1, 25, 0);
         }
 
         //fertilizer button
         for (let i = 0; i < allTypeOfFertilizer.length; i++) {
             userFertilizer[allTypeOfFertilizer[i]] = Item.createNew();
-            ItemButtonWithUses.createNew(this, userFertilizer[allTypeOfFertilizer[i]], iconLeft + iconGap * (2 + i), sloganYL, allTypeOfFertilizer[i], 0.5, 25, 15, function () {
+            ItemButtonWithUses.createNew(this, userFertilizer[allTypeOfFertilizer[i]], iconLeft + iconGap * (2 + i), sloganYL, allTypeOfFertilizer[i], 0.7, 25, 15, function () {
                 player.setTexture(allTypeOfFertilizer[i]);
                 opreationType = 3 * Math.sign(opreationType);
                 currentSelectedItem = allTypeOfFertilizer[i];
@@ -201,13 +197,13 @@ function create() {
         }
 
         //spade button
-        Button.createNew(this, iconLeft + iconGap, sloganYL, 'spade', 0.7, function () {
+        Button.createNew(this, iconLeft + iconGap, sloganYL, 'spade', 1, function () {
             player.setTexture('spade');
             opreationType = 2 * Math.sign(opreationType);
         });
 
         //arrow button 
-        Button.createNew(this, iconLeft, sloganYL, 'arrow', 0.5, function () {
+        Button.createNew(this, iconLeft, sloganYL, 'arrow', 1, function () {
             player.setTexture('nothing');
             opreationType = 1 * Math.sign(opreationType);
         });
@@ -266,7 +262,7 @@ function initStore() {
         btn_store.enable();
     }))
 
-    let btn_store = Button.createNew(_context, 200, 550, 'store', 0.5, function () {
+    let btn_store = Button.createNew(_context, 200, 550, 'store', 1, function () {
         this.disable();
         showGroup(storeGroup);
         opreationType = -Math.abs(opreationType);
@@ -303,7 +299,7 @@ function initWarehouse() {
         btn_warehouse.enable();
     }))
 
-    let btn_warehouse = Button.createNew(_context, 100, 550, 'warehouse', 0.5, function () {
+    let btn_warehouse = Button.createNew(_context, 100, 550, 'warehouse', 1, function () {
         this.disable();
         sync();
         let i = 0;
@@ -339,15 +335,15 @@ function initTreasureChest() {
     let result_panel = Button.createNew(_context, config.width / 2, config.height / 2, 'result_panel', 2.5, function () {
         setResultVisible(false);
     })
-    let result_text = _context.add.text(config.width / 2, config.height / 2 - 30, "", { fontSize: '20px', fill: '#000000' }).setOrigin(0.5, 0.5);
+    let result_text = _context.add.text(config.width / 2, config.height / 2 - 30, "", { fontSize: '20px', fill: '#000000' });
     function setResultVisible(visible) {
-        result_panel.setDepth(visible ? 6 : -1);
+        result_panel.setDepth(visible ? 6 : -5);
         if (visible) {
             result_panel.setInteractive();
         } else {
             result_panel.disableInteractive();
         }
-        result_text.setDepth(visible ? 7 : -1);
+        result_text.setDepth(visible ? 7 : -5);
     }
     setResultVisible(false);
 
@@ -357,8 +353,8 @@ function initTreasureChest() {
         let x = 450 + 180 * (i % 4);
         let y = 250;
         treasureChestGroup.push(ItemIconWithUses.createNew(_context, userProps[treasureChestId], x, y, treasureChestId, 1, -10, 45));
-        treasureChestGroup.push( ItemIconWithUses.createNew(_context, userProps[keyId], x, y + 120, keyId, 0.7, -10, 45));
-        treasureChestGroup.push(Button.createNew(_context, x, y + 220, "open", 0.7, function () {
+        treasureChestGroup.push( ItemIconWithUses.createNew(_context, userProps[keyId], x, y + 120, keyId, 1, -10, 45));
+        treasureChestGroup.push(Button.createNew(_context, x, y + 220, "open", 1, function () {
             if (userProps[treasureChestId].count > 0 && userProps[keyId].count > 0) {
                 this.disable();
                 PlayFabClientSDK.UnlockContainerItem({ "ContainerItemId": treasureChestId }, (result, error) => {
@@ -390,7 +386,7 @@ function initTreasureChest() {
         btn_treasure_chest.enable();
     }))
 
-    let btn_treasure_chest = Button.createNew(_context, 100, 450, 'treasure_chest', 0.5, function () {
+    let btn_treasure_chest = Button.createNew(_context, 100, 450, 'treasure_chest', 1, function () {
         this.disable();
         showGroup(treasureChestGroup);
         opreationType = -Math.abs(opreationType);
@@ -828,9 +824,9 @@ function generateTradingItem(_context, tradeType, x, y, id) {
     }
 
     //图像
-    group.push(_context.add.image(x, y, id).setScale(0.8));
+    group.push(_context.add.image(x, y, id));
     //交易数目
-    let _text = _context.add.text(x, y + 50, " " + 0 + " ", { backgroundColor: "#fff", fontSize: '15px', fill: '#000' }).setOrigin(0.5, 0.5);
+    let _text = _context.add.text(x, y + 50, " " + 0 + " ", { backgroundColor: "#fff", fontSize: '15px', fill: '#000' }).setOrigin(0.5,0.5);
     _text.fontWeight = 'bolder';
     // group.push(_text);
     group[id] = _text;
@@ -838,13 +834,13 @@ function generateTradingItem(_context, tradeType, x, y, id) {
         _text.setText(" " + target[id] + " ") //初始化
     }
     //价格
-    let _price = _context.add.text(x, y + 80, " " + "GD: " + price, { fontSize: '15px', fill: '#fff' }).setOrigin(0.5, 0.5);
+    let _price = _context.add.text(x, y + 80, " " + "GD: " + price, { fontSize: '15px', fill: '#fff' }).setOrigin(0.5,0);
     _price.fontWeight = 'bold';
     group.push(_price);
     //调整数目
     let op = ["sub", "add"];
     for (let i = 0; i < op.length; i++) {
-        let _btn = _context.add.image(x + 40 * (i - 0.5), y + 50, op[i]).setScale(0.3).setOrigin(0.5, 0.5);
+        let _btn = _context.add.image(x + 40 * (i - 0.5), y + 50, op[i]);
         group.push(_btn);
         _btn.inputEnabled = true;
         let timeHandler;
@@ -891,6 +887,6 @@ function hideGroup(group) {
         if (child._events&&Object.keys(child._events).length > 0) {
             child.disableInteractive();
         }
-        child.setDepth(-1);
+        child.setDepth(-5);
     }
 }
