@@ -1,6 +1,6 @@
-/// <reference path="./node_modules/playfab-web-sdk/src/Typings/PlayFab/PlayFabClientApi.d.ts" />
-/// <reference path="./node_modules/phaser/types/phaser.d.ts" />
-/// <reference path="./node_modules/playfab-web-sdk/src/Typings/Playfab/Playfab.d.ts" />
+/// <reference path="../node_modules/playfab-web-sdk/src/Typings/PlayFab/PlayFabClientApi.d.ts" />
+/// <reference path="../node_modules/phaser/types/phaser.d.ts" />
+/// <reference path="../node_modules/playfab-web-sdk/src/Typings/Playfab/Playfab.d.ts" />
 'use strict';
 
 
@@ -335,7 +335,7 @@ function initTreasureChest() {
     let result_panel = Button.createNew(_context, config.width / 2, config.height / 2, 'result_panel', 2.5, function () {
         setResultVisible(false);
     })
-    let result_text = _context.add.text(config.width / 2, config.height / 2 - 30, "", { fontSize: '20px', fill: '#000000' });
+    let result_text = _context.add.text(config.width / 2, config.height / 2-20, "", { fontSize: '20px', fill: '#000000' }).setOrigin(0.5,0.5);
     function setResultVisible(visible) {
         result_panel.setDepth(visible ? 6 : -5);
         if (visible) {
