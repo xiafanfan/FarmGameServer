@@ -1,5 +1,6 @@
 This repository contains a HTML5 game which use Phaser as frame work and PlayFab as backend platform.
 This game based on farm management simulation, its main modules are as follows:
+
 	• Basic operations: 
 		○ Sow
 		○ Fertilize
